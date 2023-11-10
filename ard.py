@@ -14,12 +14,12 @@ def send_msp(cmd, data, n_bytes):
     ser.write(bytes([n_bytes]))
     checksum ^= n_bytes
 
-    print("checksum:                " + checksum)
+    print("checksum:                " + str(checksum))
 
     ser.write(bytes([cmd]))
     checksum ^= cmd
-    print("cmd:                     " + cmd)
-    print("checksum:                " + checksum)
+    print("cmd:                     " + str(cmd))
+    print("checksum:                " + str(checksum))
     print("<------------- data ---------->")
 
     ser.write(bytes([checksum]))
