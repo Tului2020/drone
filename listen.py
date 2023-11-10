@@ -35,7 +35,7 @@ def parse_payload(message_id, payload):
 
 def main():
     # Set up the serial connection (Adjust the port and baudrate according to your setup)
-    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
+    ser = serial.Serial('/dev/ttyS0', 115200, timeout=1)
 
     try:
         while True:
