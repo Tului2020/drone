@@ -21,6 +21,7 @@ def send_msp(cmd, data, n_bytes):
 def read_data():
     time.sleep(0.1)
 
+
     count = 0
 
     roll = 0
