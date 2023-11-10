@@ -9,6 +9,7 @@ def send_msp(cmd, data, n_bytes):
     checksum = 0
 
     ser.write(b'$M<')
+    print(n_bytes)
     print(bytes([n_bytes]))
     ser.write(bytes([n_bytes]))
     checksum ^= n_bytes
