@@ -3,7 +3,7 @@ from msp.multiwii import MultiWii
 
 if __name__ == "__main__":
     try:
-        print_debug = sys.argv[1].lower() == 'true'
+        print_debug = True
         fc = MultiWii("/dev/ttyS0", print_debug)
         fc.start()
         while True:
