@@ -39,7 +39,9 @@ def main():
 
     try:
         while True:
+            print("listening")
             message_id, payload = read_message(ser)
+            print("check 1")
             data = parse_payload(message_id, payload)
             if data is not None:
                 print(f'Message ID: {message_id}, Data: {data}')
