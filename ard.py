@@ -25,40 +25,11 @@ def send_msp(message_id, data, size):
     ser.write(bytes([checksum]))
 
 def read_data():
-    time.sleep(0.1)
-
-
-    count = 0
-
-    roll = 0
-    pitch = 0
-    yaw = 0
-
     while ser.in_waiting:
-        count += 1
-        c = ser.read(1)[0]
-        print(ser.read(1))
-        print(c)
-        if count == 6:
-            roll = c
-        elif count == 7:
-            roll <<= 8
-            roll += c
-            roll = ((roll & 0xFF00) >> 8) | ((roll & 0x00FF) << 8)  # Reverse the order of bytes
-        elif count == 8:
-            pitch += c
-        elif count == 9:
-            pitch <<= 8
-            pitch += c
-            pitch = ((pitch & 0xFF00) >> 8) | ((pitch & 0x00FF) << 8)  # Reverse the order of bytes
-        elif count == 10:
-            yaw += c
-        elif count == 11:
-            yaw <<= 8
-            yaw += c
-            yaw = ((yaw & 0xFF00) >> 8) | ((yaw & 0x00FF) << 8)  # Reverse the order of bytes
+        incoming_bytes = ser.read(4)
+        decoded_byte = incoming_bytes.decode()
+        print(decoded_byte)
 
-    print(f"Roll: {roll / 10.0} Pitch: {pitch / 10.0} Yaw: {yaw}")
 
 def main():
     time.sleep(2)  # Allow some time for the serial connection to establish
