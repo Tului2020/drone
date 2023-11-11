@@ -4,7 +4,7 @@ import time
 MSP_ATTITUDE = 108
 
 ser = serial.Serial('/dev/ttyS0', 115200)  # Replace with the correct serial port
-
+print(ser.name)
 def send_msp(message_id, data, size):
     checksum = 0
 
@@ -15,12 +15,12 @@ def send_msp(message_id, data, size):
 
     ser.write(bytes([message_id]))
     checksum ^= message_id
-    print("<------------- data ---------->")
-    print("size:                    " + str(size))
-    print("checksum:                " + str(checksum))
-    print("message_id:              " + str(message_id))
-    print("checksum:                " + str(checksum))
-    print("<------------- data ---------->")
+    # print("<------------- data ---------->")
+    # print("size:                    " + str(size))
+    # print("checksum:                " + str(checksum))
+    # print("message_id:              " + str(message_id))
+    # print("checksum:                " + str(checksum))
+    # print("<------------- data ---------->")
 
     ser.write(bytes([checksum]))
 
