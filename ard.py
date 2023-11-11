@@ -18,7 +18,7 @@ def send_msp(message_id, data, size):
     ser.write(bytes([message_id]))
 
     # 4. write payload
-    set.write(bytes([data]))
+    ser.write(bytes([data]))
     checksum ^= message_id
     # print("<------------- data ---------->")
     # print("size:                    " + str(size))
