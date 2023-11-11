@@ -36,8 +36,9 @@ def read_data():
 
     while ser.in_waiting:
         count += 1
-        print(ser.read(1))
         c = ser.read(1)[0]
+        print(ser.read(1))
+        print(c)
         if count == 6:
             roll = c
         elif count == 7:
