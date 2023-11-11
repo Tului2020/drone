@@ -5,20 +5,20 @@ MSP_ATTITUDE = 108
 
 ser = serial.Serial('/dev/ttyS0', 115200)  # Replace with the correct serial port
 
-def send_msp(cmd, data, n_bytes):
+def send_msp(message_id, data, size):
     checksum = 0
 
+    
     ser.write(b'$M<')
+    ser.write(bytes([size]))
+    checksum ^= size
+
+    ser.write(bytes([message_id]))
+    checksum ^= message_id
     print("<------------- data ---------->")
-    print("n_bytes:                 " + str(n_bytes))
-    ser.write(bytes([n_bytes]))
-    checksum ^= n_bytes
-
+    print("size:                    " + str(size))
     print("checksum:                " + str(checksum))
-
-    ser.write(bytes([cmd]))
-    checksum ^= cmd
-    print("cmd:                     " + str(cmd))
+    print("message_id:              " + str(message_id))
     print("checksum:                " + str(checksum))
     print("<------------- data ---------->")
 
@@ -63,7 +63,7 @@ def main():
 
     while True:
         data = bytearray([0])  # You can replace this with your data if needed
-        send_msp(MSP_ATTITUDE, data, len(data))
+        # send_msp(MSP_ATTITUDE, data, len(data))
         read_data()
 
 if __name__ == "__main__":
