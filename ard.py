@@ -27,6 +27,7 @@ def send_msp(message_id, data, size):
 def read_data():
     while ser.in_waiting:
         incoming_bytes = ser.read(4)
+        print(incoming_bytes)
         decoded_byte = incoming_bytes.decode()
         print(decoded_byte)
 
