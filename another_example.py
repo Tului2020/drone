@@ -18,7 +18,7 @@ def listen_msp_response(ser):
             break
 
 # Replace '/dev/ttyUSB0' with your serial port
-ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
+ser = serial.Serial('/dev/ttyS0', 115200, timeout=1)
 
 # Example MSP command, replace 100 with your actual command code
 send_msp_request(ser, MSP_ATTITUDE)
