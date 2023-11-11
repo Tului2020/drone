@@ -38,6 +38,7 @@ def main():
     while True:
         data = bytearray([0])  # You can replace this with your data if needed
         send_msp(MSP_ATTITUDE, data, len(data))
+        time.sleep(0.1)
         read_data()
 
 if __name__ == "__main__":
