@@ -1,4 +1,6 @@
-from .connection import ser
+import connection
+
+ser = connection.ser
 
 try:
     while True:
