@@ -1,4 +1,6 @@
-from .connection import ser
+import connection
+
+ser = connection.ser
 
 message_count = 0
 while True:
