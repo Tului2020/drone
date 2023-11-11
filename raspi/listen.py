@@ -1,13 +1,9 @@
-import serial
-
-ser = serial.Serial('/dev/ttyS0', 9600, timeout=0)
-if not ser.is_open:
-    ser.open()
+from .connection import ser
 
 try:
     while True:
         if ser.in_waiting > 0:
-            received_data = ser.read(ser.in_waiting).decode('utf-8')  # Read and decode data
+            received_data = ser.read(4).decode('utf-8')  # Read and decode data
             print("Received:", received_data)
 
 except KeyboardInterrupt:
