@@ -6,10 +6,9 @@ if not ser.is_open:
 
 try:
     while True:
-        
         if ser.in_waiting > 0:
-            data = ser.readline()
-            print(data)
+            received_data = ser.read(ser.in_waiting).decode('utf-8')  # Read and decode data
+            print("Received:", received_data)
 
 except KeyboardInterrupt:
     pass
