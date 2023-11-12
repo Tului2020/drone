@@ -3,7 +3,8 @@ import connection
 ser = connection.ser
 
 MSP_RC = 0x69 # 105
-message_id = MSP_RC
+MSP_SET_RAW_RC = 0xC8 # 200
+message_id = MSP_SET_RAW_RC
 
 # byte_header = b'$M<\x20\x69'
 byte_header = b'$M<\x20\xc8'
@@ -26,6 +27,7 @@ print('checksum         ', checksum)
 print('byte_checksum    ', byte_checksum)
 print('<--------------------------------------------------->')
 
-ser.write(byte_header)
-ser.write(byte_payload)
-ser.write(byte_checksum)
+while True:
+    ser.write(byte_header)
+    ser.write(byte_payload)
+    ser.write(byte_checksum)
