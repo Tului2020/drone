@@ -1,0 +1,30 @@
+import connection
+
+ser = connection.ser
+
+MSP_RC = 0x69 # 105
+message_id = MSP_RC
+
+byte_header = b'$M<\x0A\x69'
+payload = [0x05, 0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05, 0xDC, 0x05, 0xDC]
+byte_payload = bytes(payload)
+
+checksum = 0
+checksum ^= 0x0A
+checksum ^= MSP_RC
+for payload_byte in byte_payload:
+    checksum ^= payload_byte
+byte_checksum = bytes([checksum])
+
+print('<--------------------------------------------------->')
+print('byte_header      ', byte_header)
+print('message_id       ', message_id)
+print('payload          ', payload)
+print('byte_payload     ', byte_payload)
+print('checksum         ', checksum)
+print('byte_checksum    ', byte_checksum)
+print('<--------------------------------------------------->')
+
+ser.write(byte_header)
+ser.write(byte_payload)
+ser.write(byte_checksum)
