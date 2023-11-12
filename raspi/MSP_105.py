@@ -22,10 +22,11 @@ for payload_byte in byte_payload:
 byte_checksum = bytes([checksum])
 
 print('<--------------------------------------------------->')
+print('size             ', size)
 print('payload          ', payload)
 print('message_id       ', message_id)
 print('checksum         ', checksum)
-
+print()
 print('byte_header      ', byte_header)
 print('byte_size        ', byte_size)
 print('byte_message_id  ', byte_message_id)
