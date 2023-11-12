@@ -8,7 +8,7 @@ message_id = MSP_ATTITUDE
 payload = [0]
 size = len(payload)
 
-byte_header = b'$M>'
+byte_header = b'$M<'
 byte_size = bytes([size])
 byte_message_id = bytes([message_id])
 byte_payload = bytes(payload)
