@@ -5,11 +5,12 @@ ser = connection.ser
 
 MSP_RC = 0x69 # 105
 MSP_SET_RAW_RC = 0xC8 # 200
-message_id = MSP_SET_RAW_RC
-
-# byte_header = b'$M<\x20\x69'
-byte_header = b'$M>\x20\xc8'
+message_id = MSP_RC
 payload = [0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0]
+
+byte_header = b'$M>'
+byte_size = bytes([len(payload)])
+byte_message_id = bytes([MSP_RC])
 byte_payload = bytes(payload)
 
 checksum = 0
@@ -20,17 +21,21 @@ for payload_byte in byte_payload:
 byte_checksum = bytes([checksum])
 
 print('<--------------------------------------------------->')
-print('byte_header      ', byte_header)
-print('message_id       ', message_id)
 print('payload          ', payload)
-print('byte_payload     ', byte_payload)
+print('message_id       ', message_id)
 print('checksum         ', checksum)
+
+print('byte_header      ', byte_header)
+print('byte_size        ', byte_size)
+print('byte_message_id  ', byte_message_id)
+print('byte_payload     ', byte_payload)
 print('byte_checksum    ', byte_checksum)
 print('<--------------------------------------------------->')
 
 while True:
     print("sending data...")
     ser.write(byte_header)
+    ser.write(byte_message_id)
     ser.write(byte_payload)
     ser.write(byte_checksum)
     time.sleep(0.5)
