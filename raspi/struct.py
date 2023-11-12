@@ -1,7 +1,7 @@
-import serial
 import struct
+import connection
 
-ser = serial.Serial('/dev/ttyS0', 115200)
+ser = connection.ser
 
 string = struct.pack('cccBBB', '$', 'M', '<', 0, 100, 100)  # simple MSP_IDENT
 print(ser.write(string))
