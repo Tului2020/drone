@@ -8,7 +8,7 @@ try:
         if ser.in_waiting > 0:
             received_data = ser.read(4).decode('utf-8')  # Read and decode data
             print("Received:", received_data)
-            time.sleep(0.01)
+            time.sleep(0.001)
 
 
 except KeyboardInterrupt:
