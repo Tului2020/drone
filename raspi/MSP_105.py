@@ -28,7 +28,8 @@ payload_bytes = [
 ]
 payload = []
 checksum = 0
-for i in [*size_message_id, *payload]:
+for i in [*size_message_id, *payload_bytes]:
+    print(i)
     if (type(i) == int):
         checksum ^= i
     else:
@@ -45,4 +46,4 @@ while True:
     print(message)
     # ser.write(bytes([16, 200, 220, 5, 120, 5, 220, 5, 176, 4, 0, 0, 0, 0, 0, 0, 0, 0]))
     ser.write(bytes(message))
-    time.sleep(0.5)
+    time.sleep(1)
