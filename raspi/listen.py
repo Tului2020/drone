@@ -26,9 +26,11 @@ def parse_message(raw_message):
         if (message_parse_idx == 3):
             message_parse_idx += 1
             message_size = _byte
+            message_array.append(_byte)
         if (message_parse_idx == 4):
             message_parse_idx += 1
             message_id = _byte
+            message_array.append(_byte)
         if (message_parse_idx == 5):
             pass
 
