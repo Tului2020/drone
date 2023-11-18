@@ -19,18 +19,22 @@ def parse_message(raw_message):
             if (chr(_byte) == message_header[message_parse_idx]):
                 message_array.append(chr(_byte))
                 message_parse_idx += 1
+                pass
             else:
                 message_parse_idx = 0
                 message_array = []
                 message_size = 0
+                pass
         if (message_parse_idx == 3):
             message_parse_idx += 1
             message_size = _byte
             message_array.append(_byte)
+            pass
         if (message_parse_idx == 4):
             message_parse_idx += 1
             message_id = _byte
             message_array.append(_byte)
+            pass
         if (message_parse_idx == 5):
             pass
 
