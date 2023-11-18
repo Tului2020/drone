@@ -41,7 +41,7 @@ def main():
     time.sleep(2)  # Allow some time for the serial connection to establish
 
     while True:
-        data = bytearray([0])  # You can replace this with your data if needed
+        data = bytes([0])  # You can replace this with your data if needed
         send_msp(MSP_ATTITUDE, data, len(data))
         time.sleep(1)
         # read_data()
