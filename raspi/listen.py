@@ -40,7 +40,8 @@ try:
             received_data = ser.read(4)  # Read and decode data
             print(received_data)
             parse_message(received_data)
-            print(message_array)
+            if (message_parse_idx > 2): 
+                print(message_array)
 
 except KeyboardInterrupt:
     pass
