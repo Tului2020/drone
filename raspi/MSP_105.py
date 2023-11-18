@@ -3,18 +3,18 @@ import time
 
 ser = connection.ser
 
-MSP_RC = 105
+MSP_RC = 200
 header = [36, 77, 60]
 size_message_id = [16, MSP_RC]
 
-throttle = 1000
-roll = 900
-pitch = 900
-yaw = 900
-aux1 = 1900
-aux2 = 1600
-aux3 = 0
-aux4 = 0
+throttle = 1005
+roll = 1005
+pitch = 1005
+yaw = 1005
+aux1 = 1005
+aux2 = 1005
+aux3 = 1005
+aux4 = 1005
 
 payload_bytes = [
     roll.to_bytes(2, 'little'),
