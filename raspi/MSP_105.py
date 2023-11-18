@@ -40,14 +40,14 @@ while True:
     # ser.write(bytes([36, 77, 60, 16, 200, 220, 5, 120, 5, 176, 4, 0, 0, 0, 0, 0, 0, 0, 0, 17]))
     ser.write(bytes([
         36, 77, 60, 16, MSP_SET_RAW_RC,
-        120, 5,     # Throttle
+        220, 5,     # Throttle
         120, 5,     # Roll
-        120, 5,     # Pitch
-        120, 5,     # Yaw
-        120, 5,     # AUX1
-        120, 5,     # AUX2
+        220, 5,     # Pitch
+        176, 4,     # Yaw
+        0, 0,     # AUX1
+        0, 0,     # AUX2
         0, 0,       # AUX3
         0, 0,       # AUX4
-        17
+        17,
     ]))
     time.sleep(0.5)
