@@ -18,7 +18,7 @@ def send_msp(message_id, data, size):
     ser.write(bytes([message_id]))
 
     # 4. write payload
-    ser.write(bytes([data]))
+    ser.write([data])
     checksum ^= message_id
     # print("<------------- data ---------->")
     # print("size:                    " + str(size))
@@ -39,9 +39,9 @@ def read_data():
 
 def main():
     time.sleep(2)  # Allow some time for the serial connection to establish
+    data = bytes([0])  # You can replace this with your data if needed
 
     while True:
-        data = bytes([0])  # You can replace this with your data if needed
         send_msp(MSP_ATTITUDE, data, len(data))
         time.sleep(1)
         # read_data()
