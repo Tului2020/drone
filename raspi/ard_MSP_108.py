@@ -6,6 +6,7 @@ MSP_ATTITUDE = 108
 ser = connection.ser
 
 def send_msp(cmd, data, n_bytes):
+    print("sending message...")
     checksum = 0
 
     ser.write(b'$M<')
