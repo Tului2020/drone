@@ -44,5 +44,9 @@ try:
             parse_message(received_data)
             if (len(message_array) > 5):
                 print(message_array)
+                message_array = []
+                message_size = 0
+                payload = []
+
 except KeyboardInterrupt:
     pass
