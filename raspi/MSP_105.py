@@ -29,7 +29,6 @@ payload_bytes = [
 payload = []
 checksum = 0
 for i in [*size_message_id, *payload_bytes]:
-    print(i)
     if (type(i) == int):
         checksum ^= i
     else:
