@@ -7,7 +7,7 @@ MSP_RC = 200
 header = [36, 77, 60]
 size_message_id = [16, MSP_RC]
 
-throttle = 900
+throttle = 1000
 roll = 900
 pitch = 900
 yaw = 900
