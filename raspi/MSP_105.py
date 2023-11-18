@@ -36,8 +36,5 @@ print('<--------------------------------------------------->')
 
 while True:
     print("sending data...")
-    ser.write(byte_header)
-    ser.write(byte_message_id)
-    ser.write(byte_payload)
-    ser.write(byte_checksum)
+    ser.write(bytes([36, 77, 60, 16, 200, 220, 5, 120, 5, 176, 4, 0, 0, 0, 0, 0, 0, 0, 0, 17]))
     time.sleep(0.5)
