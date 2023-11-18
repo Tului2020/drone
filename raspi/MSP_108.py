@@ -18,7 +18,7 @@ checksum ^= 0x20
 checksum ^= message_id
 for payload_byte in byte_payload:
     checksum ^= payload_byte
-byte_checksum = bytes([checksum])
+byte_checksum = bytes([108])
 
 print('<--------------------------------------------------->')
 print('size             ', size)
