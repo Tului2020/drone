@@ -42,7 +42,7 @@ try:
         if ser.in_waiting > 0:
             received_data = ser.read(1)
             parse_message(received_data)
-            if (len(message_array) > 5):
+            if (len(message_array) > 6):
                 print(message_array)
                 message_array = []
                 message_size = 0
