@@ -39,7 +39,7 @@ while True:
     print("sending data...")
     # ser.write(bytes([36, 77, 60, 16, 200, 220, 5, 120, 5, 176, 4, 0, 0, 0, 0, 0, 0, 0, 0, 17]))
     ser.write(bytes([
-        36, 77, 60, 16, MSP_RC,
+        36, 77, 60, 16, MSP_SET_RAW_RC,
         120, 5,     # Throttle
         120, 5,     # Roll
         120, 5,     # Pitch
