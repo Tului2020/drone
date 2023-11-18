@@ -30,7 +30,7 @@ def parse_message(raw_message):
         if (message_parse_idx == 5):
             if (len(payload) == message_size):
                 hex_values = []
-                for i in range(message_size / 2):
+                for i in range(int(message_size / 2)):
                     hex_values.append(int.from_bytes(bytes([payload[i], payload[i + 1]])))
                 message_array.append(hex_values)
             else:
