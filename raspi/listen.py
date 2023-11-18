@@ -25,7 +25,7 @@ def parse_message(raw_message):
                 message_size = 0
         if (message_parse_idx == 3):
             message_parse_idx += 1
-            print('_byte', _byte)
+            print('_byte', type(_byte), _byte)
             message_size = int.from_bytes(_byte)
         if (message_parse_idx == 4):
             message_parse_idx += 1
