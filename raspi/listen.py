@@ -15,6 +15,7 @@ def parse_message(raw_message):
     global message_array
 
     for _byte in raw_message:
+        print(_byte)
         if (message_parse_idx < 3):
             if (chr(_byte) == message_header[message_parse_idx]):
                 message_array.append(chr(_byte))
@@ -37,8 +38,7 @@ def parse_message(raw_message):
 try:
     while True:
         if ser.in_waiting > 0:
-            received_data = ser.read(4)  # Read and decode data
-            print(received_data)
+            received_data = ser.read(1)
             parse_message(received_data)
             if (message_parse_idx > 2): 
                 print(message_array)
