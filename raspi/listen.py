@@ -38,6 +38,7 @@ try:
     while True:
         if ser.in_waiting > 0:
             received_data = ser.read(4)  # Read and decode data
+            print(received_data)
             parse_message(received_data)
             print(message_array)
 
