@@ -15,7 +15,6 @@ def parse_message(raw_message):
     message_parse_idx = len(message_array)
 
     for _byte in raw_message:
-        print(_byte)
         if (message_parse_idx < 3):
             if (chr(_byte) == message_header[message_parse_idx]):
                 message_array.append(chr(_byte))
@@ -43,7 +42,7 @@ try:
         if ser.in_waiting > 0:
             received_data = ser.read(1)
             parse_message(received_data)
-            if (len(message_array) > 6):
+            if (len(message_array) > 5):
                 print(message_array)
 except KeyboardInterrupt:
     pass
