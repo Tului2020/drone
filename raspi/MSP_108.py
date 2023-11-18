@@ -3,7 +3,7 @@ import time
 
 ser = connection.ser
 
-MSP_ATTITUDE = 0x6C # 108
+MSP_ATTITUDE = 109
 message_id = MSP_ATTITUDE
 
 byte_header = b'$M<'
