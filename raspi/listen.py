@@ -43,6 +43,7 @@ try:
         if ser.in_waiting > 0:
             received_data = ser.read(1)
             parse_message(received_data)
-
+            if (len(message_array) > 2):
+                print(message_array)
 except KeyboardInterrupt:
     pass
