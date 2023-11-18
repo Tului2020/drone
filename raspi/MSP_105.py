@@ -7,10 +7,10 @@ MSP_RC = 200
 header = [36, 77, 60]
 size_message_id = [16, MSP_RC]
 
-throttle = 1900
-roll = 1000
-pitch = 1000
-yaw = 1000
+throttle = 1001
+roll = 1002
+pitch = 1003
+yaw = 1004
 aux1 = 0
 aux2 = 1500
 aux3 = 0
