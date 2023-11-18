@@ -12,7 +12,7 @@ roll = 1001
 pitch = 1002
 yaw = 1003
 aux1 = 0
-aux2 = 1500
+aux2 = 1600
 aux3 = 0
 aux4 = 0
 
