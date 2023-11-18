@@ -3,8 +3,8 @@ import time
 
 ser = connection.ser
 
-MSP_RC = 0x69  # 105
-MSP_SET_RAW_RC = 0xC8  # 200
+MSP_RC = 105  # 105
+MSP_SET_RAW_RC = 200  # 200
 message_id = MSP_RC
 payload = [0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07,
            0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0, 0x07, 0xD0]
@@ -39,7 +39,7 @@ while True:
     print("sending data...")
     # ser.write(bytes([36, 77, 60, 16, 200, 220, 5, 120, 5, 176, 4, 0, 0, 0, 0, 0, 0, 0, 0, 17]))
     ser.write(bytes([
-        36, 77, 60, 16, 200,
+        36, 77, 60, 16, MSP_RC,
         220, 5, # Throttle
         120, 5, # Roll
         220, 5, # Pitch
