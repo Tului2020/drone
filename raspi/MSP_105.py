@@ -19,8 +19,8 @@ aux4 = 0
 payload_bytes = [
     roll.to_bytes(2, 'little'),
     pitch.to_bytes(2, 'little'),
-    yaw.to_bytes(2, 'little'),
     throttle.to_bytes(2, 'little'),
+    yaw.to_bytes(2, 'little'),
     aux1.to_bytes(2, 'little'),
     aux2.to_bytes(2, 'little'),
     aux3.to_bytes(2, 'little'),
