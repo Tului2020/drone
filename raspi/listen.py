@@ -1,5 +1,4 @@
 import connection
-import time
 
 ser = connection.ser
 message_header = '$M>'
