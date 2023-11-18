@@ -4,15 +4,14 @@ import time
 ser = connection.ser
 message_header = '$M>'
 
-message_parse_idx = 0
 message_array = []
 message_size = 0
 
 def parse_message(raw_message):
-    global message_parse_idx
     global message_size
     global message_id
     global message_array
+    message_parse_idx = len(message_array)
 
     for _byte in raw_message:
         print(_byte)
@@ -40,8 +39,6 @@ try:
         if ser.in_waiting > 0:
             received_data = ser.read(1)
             parse_message(received_data)
-            if (message_parse_idx > 2): 
-                print(message_array)
 
 except KeyboardInterrupt:
     pass
