@@ -1,9 +1,10 @@
 import time
 from pymavlink import mavutil
 
+print("1. Creating Connection")
 # Create the connection
 master = mavutil.mavlink_connection("/dev/ttyS0", baud=115200)  # Update port and baud rate as needed
-
+print("2. Connection created and sending heartbeat")
 # Wait for the first heartbeat 
 # This clears the message buffer and confirms the connection
 master.wait_heartbeat()
