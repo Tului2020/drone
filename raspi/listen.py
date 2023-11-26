@@ -43,6 +43,7 @@ try:
     while True:
         if ser.in_waiting > 0:
             received_data = ser.read(1)
+            print(received_data)
             parse_message(received_data)
             if (len(message_array) > 6):
                 print(message_array)
