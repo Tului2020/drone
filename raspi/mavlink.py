@@ -1,28 +1,43 @@
-from pymavlink import mavutil
+import serial
+import time
 
-# Create a connection to the vehicle
-# Replace 'YOUR_CONNECTION_STRING' with your connection string
-# For example, for a serial connection: '/dev/ttyAMA0'
-# For a UDP connection: 'udp:127.0.0.1:14551'
-mav_connection = mavutil.mavlink_connection('/dev/ttyS0')
+# Example CRSF message format (hypothetical)
+# In a real implementation, this would need to match the CRSF protocol's specifications
+# [Device Address] [Length] [Command Type] [Payload] [CRC]
+crsf_msg_format = "<BBBHB"
 
-# Wait for the heartbeat message to find the system ID and component ID of the vehicle
-mav_connection.wait_heartbeat()
-print("Heartbeat from system (system ID: %u component ID: %u)" % (mav_connection.target_system, mav_connection.target_component))
+def pack_crsf_message():
+    device_address = 0xC8  # Example address
+    length = 0x03  # Length of payload + 1 for command type
+    command_type = 0x16  # Example command type
+    payload = 0x0100  # Example payload
+    crc = 0xE7  # Example CRC, would need calculation in a real scenario
 
-# # Example: Sending a command to change the flight mode
-# # The set_mode_send function parameters may vary based on your vehicle and requirements
-# # For example, to set a mode on a generic MAVLink system, use mavutil.mavlink.MAV_MODE_GUIDED
-# # You may need to refer to your vehicle's documentation for specific mode values
-# mav_connection.mav.set_mode_send(
-#     mav_connection.target_system,
-#     mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-#     YOUR_FLIGHT_MODE)  # Replace YOUR_FLIGHT_MODE with the desired mode
+    crsf_message = struct.pack(crsf_msg_format, device_address, length, command_type, payload, crc)
+    return crsf_message
 
-# # Check for acknowledgment
-# ack_msg = mav_connection.recv_match(type='COMMAND_ACK', blocking=True)
-# if ack_msg is not None:
-#     print("Received acknowledgment: %s" % ack_msg)
+def unpack_crsf_message(message):
+    device_address, length, command_type, payload, crc = struct.unpack(crsf_msg_format, message)
+    print(f"CRSF message received: Device {device_address}, Command {command_type}, Payload {payload}")
 
-# Close the connection
-mav_connection.close()
+# Setup serial connection
+serial_port = "/dev/ttyS0"  # Replace with your UART port
+baud_rate = 115200  # Replace with your baud rate
+ser = serial.Serial(serial_port, baud_rate)
+
+try:
+    while True:
+        # Send CRSF message
+        crsf_message = pack_crsf_message()
+        ser.write(crsf_message)
+
+        # Check for incoming messages
+        if ser.in_waiting > 0:
+            data = ser.read(ser.in_waiting)
+            unpack_crsf_message(data)
+
+        time.sleep(1)
+
+except KeyboardInterrupt:
+    ser.close()
+    print("Script terminated")
