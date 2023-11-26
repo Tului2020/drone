@@ -31,6 +31,7 @@ try:
         # Send CRSF message
         crsf_message = pack_crsf_message()
         ser.write(crsf_message)
+        print('message sent')
 
         # Check for incoming messages
         if ser.in_waiting > 0:
