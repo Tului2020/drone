@@ -1,5 +1,6 @@
 import serial
 import time
+import struct
 
 # Example CRSF message format (hypothetical)
 # In a real implementation, this would need to match the CRSF protocol's specifications
