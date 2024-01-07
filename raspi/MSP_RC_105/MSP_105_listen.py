@@ -1,4 +1,4 @@
-from ..connection import ser
+from connection import ser
 
 message_header = '$M>'
 
