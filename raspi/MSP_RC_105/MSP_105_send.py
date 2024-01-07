@@ -1,4 +1,4 @@
-from connection import ser
+from ..connection import ser
 import time
 
 MSP_RC = 105

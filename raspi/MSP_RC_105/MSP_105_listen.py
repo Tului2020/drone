@@ -1,11 +1,11 @@
-import connection
+from ..connection import ser
 
-ser = connection.ser
 message_header = '$M>'
 
 message_array = []
 message_size = 0
 payload = []
+
 
 def parse_message(raw_message):
     global message_size
@@ -30,7 +30,8 @@ def parse_message(raw_message):
             if (len(payload) == message_size):
                 hex_values = []
                 for i in range(int(message_size / 2)):
-                    hex_values.append(int.from_bytes(bytes([payload[i], payload[i + 1]])))
+                    hex_values.append(int.from_bytes(
+                        bytes([payload[i], payload[i + 1]])))
                 message_array.append(hex_values)
             else:
                 payload.append(_byte)
@@ -38,6 +39,7 @@ def parse_message(raw_message):
             message_array.append(_byte)
 
         message_parse_idx += 1
+
 
 try:
     while True:
