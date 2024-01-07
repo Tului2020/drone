@@ -111,7 +111,7 @@ def handleCrsfPacket(ptype, data):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-P', '--port', default='/dev/ttyS0', required=False)
-parser.add_argument('-b', '--baud', default=416666, required=False)
+parser.add_argument('-b', '--baud', default=420000, required=False)
 args = parser.parse_args()
 
 with serial.Serial(args.port, args.baud, timeout=2) as ser:
