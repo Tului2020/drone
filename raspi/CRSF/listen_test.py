@@ -58,6 +58,7 @@ def signed_byte(b):
     return b - 256 if b >= 128 else b
 
 def handleCrsfPacket(ptype, data):
+    print('ptype', ptype)
     if ptype == PacketsTypes.RADIO_ID and data[5] == 0x10:
         #print(f"OTX sync")
         pass
