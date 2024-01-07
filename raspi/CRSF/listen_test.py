@@ -58,7 +58,6 @@ def signed_byte(b):
     return b - 256 if b >= 128 else b
 
 def handleCrsfPacket(ptype, data):
-    print('ptype', ptype)
     if ptype == PacketsTypes.RADIO_ID and data[5] == 0x10:
         #print(f"OTX sync")
         pass
@@ -112,7 +111,7 @@ def handleCrsfPacket(ptype, data):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-P', '--port', default='/dev/ttyS0', required=False)
-parser.add_argument('-b', '--baud', default=115200, required=False)
+parser.add_argument('-b', '--baud', default=416666, required=False)
 args = parser.parse_args()
 
 with serial.Serial(args.port, args.baud, timeout=2) as ser:
