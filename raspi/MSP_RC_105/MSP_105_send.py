@@ -1,7 +1,7 @@
 from connection import ser
 import time
 
-MSP_RC = 105
+MSP_RC = 200
 header = [36, 77, 60]
 size_message_id = [16, MSP_RC]
 
