@@ -40,6 +40,7 @@ message = [*header, *size_message_id, *payload, checksum]
 
 while True:
     print("sending data...")
+    print(message)
     # ser.write(bytes([16, 200, 220, 5, 120, 5, 220, 5, 176, 4, 0, 0, 0, 0, 0, 0, 0, 0]))
     ser.write(bytes(message))
     time.sleep(1)
