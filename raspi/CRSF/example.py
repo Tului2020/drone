@@ -104,7 +104,7 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
         if ser.in_waiting > 0:
             input.extend(ser.read(ser.in_waiting))
         else:
-            time.sleep(0.020)
+            time.sleep(0.5)
         if len(input) > 2:
             # This simple parser works with malformed CRSF streams
             # it does not check the first byte for SYNC_BYTE, but
