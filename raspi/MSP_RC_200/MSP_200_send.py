@@ -1,9 +1,13 @@
+# For this to work, BetaFlight needs the following configration
+# 1. Ports      -> Correct UART Port needs to be configured as "Configuration/MSP"
+# 2. Receiver   -> Receiver Mode also needs to be configured for "MSP (control via MSP port)"
+
 from connection import ser
 import time
 
-MSP_RC = 200
+MSP_RC_ID = 200
 header = [36, 77, 60]
-size_message_id = [16, MSP_RC]
+size_message_id = [16, MSP_RC_ID]
 
 throttle = 1900
 roll = 1005
@@ -38,9 +42,10 @@ for i in [*size_message_id, *payload_bytes]:
 
 message = [*header, *size_message_id, *payload, checksum]
 
+iter = 0
+
 while True:
-    print("sending data...")
-    print(message)
-    # ser.write(bytes([16, 200, 220, 5, 120, 5, 220, 5, 176, 4, 0, 0, 0, 0, 0, 0, 0, 0]))
+    print(f"{iter} sending data...")
+    iter += 1
     ser.write(bytes(message))
     time.sleep(1)
