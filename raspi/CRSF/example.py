@@ -112,6 +112,7 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
             # instead just looks for anything where the packet length
             # is 4-64 bytes, and the CRC validates
             expected_len = input[1] + 2
+            print('expected_len', expected_len)
             if expected_len > 64 or expected_len < 4:
                 input = []
             elif len(input) >= expected_len:
