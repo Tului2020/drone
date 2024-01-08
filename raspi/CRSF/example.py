@@ -104,7 +104,7 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
         if ser.in_waiting > 0:
             input.extend(ser.read(ser.in_waiting))
         else:
-            time.sleep(0.5)
+            time.sleep(0.020)
         print('\n\n')
         print('input', len(input))
         if len(input) > 2:
