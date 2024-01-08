@@ -1,3 +1,8 @@
+# For this to work, BetaFlight needs the following configration
+# 1. Ports      -> Correct UART Port needs to be configured as "Serial Rx"
+# 2. Receiver   -> Receiver Mode also needs to be configured for "Serial (via UART)"
+# 3. Receiver   -> TELEMETRY needs to be enabled
+
 from connection import ser
 
 # msg_sync = [0xEE]
