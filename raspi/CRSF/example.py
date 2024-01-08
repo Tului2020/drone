@@ -74,7 +74,7 @@ def handleCrsfPacket(ptype, data):
         # print(f"Battery: {vbat:0.2f}V {curr:0.1f}A {mah}mAh {pct}%")
     elif ptype == PacketsTypes.DEVICE_INFO:
         packet = ' '.join(map(hex, data))
-        # print(f"Device Info: {packet}")
+        print(f"Device Info: {packet}")
     elif data[2] == PacketsTypes.GPS:
         lat = int.from_bytes(data[3:7], byteorder='big', signed=True) / 1e7
         lon = int.from_bytes(data[7:11], byteorder='big', signed=True) / 1e7
