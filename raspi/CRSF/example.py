@@ -91,7 +91,7 @@ def handleCrsfPacket(ptype, data):
         pass
     else:
         packet = ' '.join(map(hex, data))
-        print(f"Unknown 0x{ptype:02x}: {packet}")
+        # print(f"Unknown 0x{ptype:02x}: {packet}")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-P', '--port', default='/dev/ttyS0', required=False)
