@@ -12,12 +12,12 @@ from connection import ser
 
 # ser.write(bytes([*msg_sync, *msg_len, *msg_type, *msg_payload, checksum]))
 
-ser.write(bytes([0xEE, 0x04, 0x28, 0x00, 0xEA, 0x54, 0x2B, 0xC0]))
+ser.write(bytes([0x00, 0x04, 0x28, 0x00, 0xEA, 0x54, 0x2B, 0xC0]))
 
 
 
 # print(checksum) # 194
-# EE 04 28 00 EA 54 2B C0
+#       EE 04 28 00 EA 54 2B C0
 # HOST: EE 04 28 00 EA 54
 # EE = dest
 # 04 = len
@@ -25,4 +25,4 @@ ser.write(bytes([0xEE, 0x04, 0x28, 0x00, 0xEA, 0x54, 0x2B, 0xC0]))
 # 00 EA = extended packet
 #         00 = CRSF_ADDRESS_BROADCAST (extended destination)
 #         EA = CRSF_ADDRESS_RADIO_TRANSMITTER (extended source)
-# 54 = CRC
+# 54 = CRC[]
