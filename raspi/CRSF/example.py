@@ -71,7 +71,7 @@ def handleCrsfPacket(ptype, data):
         curr = int.from_bytes(data[5:7], byteorder='big', signed=True) / 10.0
         mah = data[7] << 16 | data[8] << 7 | data[9]
         pct = data[10]
-        print(f"Battery: {vbat:0.2f}V {curr:0.1f}A {mah}mAh {pct}%")
+        # print(f"Battery: {vbat:0.2f}V {curr:0.1f}A {mah}mAh {pct}%")
     elif ptype == PacketsTypes.DEVICE_INFO:
         packet = ' '.join(map(hex, data))
         # print(f"Device Info: {packet}")
@@ -106,14 +106,14 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
         # else:
         #     time.sleep(0.020)
         if len(input) > 2:
-            print('\n')
-            print('input', len(input))
+            # print('\n')
+            # print('input', len(input))
             # This simple parser works with malformed CRSF streams
             # it does not check the first byte for SYNC_BYTE, but
             # instead just looks for anything where the packet length
             # is 4-64 bytes, and the CRC validates
             expected_len = input[1] + 2
-            print('expected_len', expected_len)
+            # print('expected_len', expected_len)
             if expected_len > 64 or expected_len < 4:
                 input = []
             elif len(input) >= expected_len:
