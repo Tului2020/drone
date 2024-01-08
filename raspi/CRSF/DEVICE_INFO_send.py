@@ -1,19 +1,20 @@
 from connection import ser
 
 msg_sync = [0xEE]
-msg_len = [0x04]
+msg_len = [0x03]
 msg_type = [0x28]
 msg_payload = [0x00, 0xEA]
-msg_crc = [0x54]
+# msg_crc = [0x54]
 
-ser.write(bytes([*msg_sync, *msg_len, *msg_type, *msg_payload, *msg_crc]))
+checksum = 0
+for i in [*msg_type, *msg_payload]:
+    checksum ^= i
+
+ser.write(bytes([*msg_sync, *msg_len, *msg_type, *msg_payload, checksum]))
 
 
 
 
-# checksum = 0
-# for i in [*msg_type, *msg_payload]:
-#     checksum ^= i
 
 # print(checksum) # 194
 
