@@ -105,6 +105,7 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
             input.extend(ser.read(ser.in_waiting))
         else:
             time.sleep(0.5)
+        print('\n\n')
         print('input', len(input))
         if len(input) > 2:
             # This simple parser works with malformed CRSF streams
