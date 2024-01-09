@@ -2,7 +2,7 @@ import serial
 from pymavlink import mavutil
 
 # Set the UART port and baud rate
-uart_port = '/dev/ttyUSB0'  # Example for Linux
+uart_port = '/dev/ttyS0'  # Example for Linux
 # uart_port = 'COM3'  # Example for Windows
 baud_rate = 57600
 
