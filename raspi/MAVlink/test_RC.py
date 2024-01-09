@@ -20,7 +20,7 @@ def set_rc_channel_pwm(channel_id, pwm=1500):
         *rc_channel_values,                             # RC channel list, in microseconds.
     )
 
-    print(mav_connection.recv_match(type='COMMAND_ACK', blocking=True).to_dict())
+    # print(mav_connection.recv_match(type='COMMAND_ACK', blocking=True).to_dict())
 
 
 
