@@ -8,7 +8,7 @@ baud_rate = 57600
 
 def main():
     # # Open the serial port
-    mav_connection = mavutil.mavlink_connection(uart_port, baud=baud_rate, dialect="standard", mavversion="2.0")
+    mav_connection = mavutil.mavlink_connection(uart_port, baud=baud_rate)
 
     print("Waiting for MAVLink messages...")
     while True:
@@ -17,7 +17,11 @@ def main():
             # msg = mav_connection.recv_match(type='COMMAND_ACK', blocking=True)
             msg = mav_connection.recv_match(blocking=True)
             if msg:
-                print(f"Received message: {msg.to_dict()}")
+                msg_dict = msg.to_dict()
+                if msg_dict['mavpackettype'] == 'ATTITUDE':
+                    print(f"ROLL:   {msg_dict['roll']}")
+                    print(f"PITCH:  {msg_dict['pitch']}")
+                    print(f"YAW:    {msg_dict['yaw']}")
         except Exception as e:
             print(f"Error: {e}")
             break
