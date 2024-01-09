@@ -20,7 +20,5 @@ def main():
             print(f"Error: {e}")
             break
 
-    ser.close()
-
 if __name__ == "__main__":
     main()
