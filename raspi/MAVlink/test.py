@@ -14,20 +14,12 @@ def main():
     while True:
         try:
             # Wait for a valid MAVLink message
-            msg = mav_connection.recv_match(blocking=True)
+            msg = mav_connection.recv_match(type='COMMAND_ACK', blocking=True)
             if msg:
                 print(f"Received message: {msg.to_dict()}")
         except Exception as e:
             print(f"Error: {e}")
             break
-
-    # Get some information !
-    while True:
-        try:
-            print(mav_connection.recv_match(type='COMMAND_ACK', blocking=True).to_dict())
-        except:
-            pass
-        sleep(0.1)
 
 if __name__ == "__main__":
     main()
