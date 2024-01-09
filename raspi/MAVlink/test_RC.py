@@ -10,7 +10,7 @@ baud_rate = 57600
 
 
 # Start a connection
-mav_connection = mavutil.mavlink_connection(uart_port, baud=baud_rate)
+mav_connection = mavutil.mavlink_connection(uart_port, baud=baud_rate, mavversion="2.0")
 print('Connection created')
 
 # Wait for the heartbeat message to find the system ID and component ID
