@@ -15,14 +15,13 @@ def main():
         try:
             # Wait for a valid MAVLink message
             # msg = mav_connection.recv_match(type='COMMAND_ACK', blocking=True)
-            msg = mav_connection.recv_match(blocking=True)
+            msg = mav_connection.recv_match(type='ATTITUDE', blocking=True)
             if msg:
                 msg_dict = msg.to_dict()
-                if msg_dict['mavpackettype'] == 'ATTITUDE':
-                    print(f"ROLL:   {msg_dict['roll']}")
-                    print(f"PITCH:  {msg_dict['pitch']}")
-                    print(f"YAW:    {msg_dict['yaw']}")
-                    print()
+                print(f"ROLL:   {msg_dict['roll']}")
+                print(f"PITCH:  {msg_dict['pitch']}")
+                print(f"YAW:    {msg_dict['yaw']}")
+                print()
         except Exception as e:
             print(f"Error: {e}")
             break
