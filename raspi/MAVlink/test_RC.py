@@ -11,21 +11,19 @@ baud_rate = 57600
 
 # Start a connection
 mav = mavutil.mavlink_connection(uart_port, baud=baud_rate)
+print('Connection created')
 
 # Wait for the heartbeat message to find the system ID and component ID
 mav.wait_heartbeat()
+print('Connection established')
 
 # Function to send RC channel values
 def set_rc_channel_pwm(channel_id, pwm=1500):
-    """ Set RC channel pwm value 
-    Args:
-        channel_id (int): Channel ID
-        pwm (int): PWM value (usually in the range [1000,2000])
-    """
     if channel_id < 1:
         print("Channel does not exist.")
         return
-
+    else:
+        print('Valid Channel')
     # The channel values to be sent. Channels that are not being controlled should be set to 0.
     # In this example, we're only controlling the first channel.
     rc_channel_values = [0] * 8
@@ -39,5 +37,5 @@ def set_rc_channel_pwm(channel_id, pwm=1500):
     )
 
 # Example: Set channel 1 to 1500 PWM
-set_rc_channel_pwm(1, 2000)
+set_rc_channel_pwm(1, 1600)
 
