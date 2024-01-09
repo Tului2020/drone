@@ -12,8 +12,8 @@ try:
             received_data = ser.read(1)
             print()
             print(f'iteration: {iter}')
-            print('received_data', received_data)
-            print('received_data', int.from_bytes(received_data))
+            print('received_data raw', received_data)
+            print('received_data int', int.from_bytes(received_data))
             iter += 1
 
 
