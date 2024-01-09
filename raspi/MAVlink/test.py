@@ -1,15 +1,6 @@
-from pymavlink import mavutil
-from time import sleep
-
-# Set the UART port and baud rate
-uart_port = '/dev/ttyS0'  # Example for Linux
-# uart_port = 'COM3'  # Example for Windows
-baud_rate = 57600
+from connection import mav_connection
 
 def main():
-    # # Open the serial port
-    mav_connection = mavutil.mavlink_connection(uart_port, baud=baud_rate)
-
     print("Waiting for MAVLink messages...")
     while True:
         try:
