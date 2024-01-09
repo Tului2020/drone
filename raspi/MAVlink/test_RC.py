@@ -36,7 +36,7 @@ def set_rc_channel_pwm(channel_id, pwm=1500):
         *rc_channel_values     # RC channel values (up to 8 channels)
     )
 
-    print(mav_connection.recv_match(type='COMMAND_ACK', blocking=True).to_dict())
+    print(mav_connection.recv_match(blocking=True).to_dict())
 
 # Example: Set channel 1 to 1500 PWM
 set_rc_channel_pwm(1, 1600)
