@@ -11,6 +11,7 @@ def main():
     ser = serial.Serial(uart_port, baud_rate, timeout=1)
 
     # Create a mavlink connection, specifying the serial port
+    print(ser.port)
     mav_connection = mavutil.mavlink_connection(ser.port)
 
     print("Waiting for MAVLink messages...")
