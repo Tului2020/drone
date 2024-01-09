@@ -22,7 +22,7 @@ def main():
             print(f"Received message: {msg.to_dict()}")
     except Exception as e:
         print(f"Error: {e}")
-        break
+        # break
 
     ser.close()
 
