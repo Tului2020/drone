@@ -24,7 +24,7 @@ def main():
     # Get some information !
     while True:
         try:
-            print(mav_connection.recv_match().to_dict())
+            print(mav_connection.recv_match(type='COMMAND_ACK', blocking=True).to_dict())
         except:
             pass
         sleep(0.1)
