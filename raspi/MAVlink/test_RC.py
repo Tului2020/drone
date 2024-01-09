@@ -51,7 +51,7 @@ def set_rc_channel_pwm(channel_id, pwm=1500):
 
     # Mavlink 2 supports up to 18 channels:
     # https://mavlink.io/en/messages/common.html#RC_CHANNELS_OVERRIDE
-    rc_channel_values = [65535 for _ in range(9)]
+    rc_channel_values = [2000 for _ in range(9)]
     rc_channel_values[channel_id - 1] = pwm
     mav_connection.mav.rc_channels_override_send(
         mav_connection.target_system,                   # target_system
