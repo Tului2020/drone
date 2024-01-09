@@ -14,15 +14,15 @@ def main():
     mav_connection = mavutil.mavlink_connection(ser.port)
 
     print("Waiting for MAVLink messages...")
-    while True:
-        try:
-            # Wait for a valid MAVLink message
-            msg = mav_connection.recv_match(blocking=True)
-            if msg:
-                print(f"Received message: {msg.to_dict()}")
-        except Exception as e:
-            print(f"Error: {e}")
-            break
+    # while True:
+    try:
+        # Wait for a valid MAVLink message
+        msg = mav_connection.recv_match(blocking=True)
+        if msg:
+            print(f"Received message: {msg.to_dict()}")
+    except Exception as e:
+        print(f"Error: {e}")
+        break
 
     ser.close()
 
