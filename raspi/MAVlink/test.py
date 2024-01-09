@@ -22,6 +22,7 @@ def main():
                     print(f"ROLL:   {msg_dict['roll']}")
                     print(f"PITCH:  {msg_dict['pitch']}")
                     print(f"YAW:    {msg_dict['yaw']}")
+                    print()
         except Exception as e:
             print(f"Error: {e}")
             break
