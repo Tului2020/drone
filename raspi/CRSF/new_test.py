@@ -2,7 +2,7 @@ import serial
 import time
 
 # Initialize serial connection
-ser = serial.Serial('/dev/serial0', 57600, timeout=1)  # Adjust serial port and baud rate as necessary
+ser = serial.Serial('/dev/ttyS0', 57600, timeout=1)  # Adjust serial port and baud rate as necessary
 
 while True:
     # Example: Sending a command to the FC
