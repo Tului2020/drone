@@ -41,6 +41,34 @@ def send_crsf_throttle_command(serial_port, throttle_value):
     serial_port.write(frame)
     print(f"Sent throttle command: {throttle_value}")
 
+def send_crsf_device_ping_command(serial_port):
+    def crc8_dvb_s2(crc, a):
+        crc ^= a
+        for _ in range(8):
+            if crc & 0x80:
+                crc = (crc << 1) ^ 0xD5
+            else:
+                crc = crc << 1
+        return crc & 0xFF
+
+    command_id = 0x28  # Hypothetical Command ID for Ping
+    payload = bytearray([])  # Assuming no payload for ping
+    length = 1 + len(payload)  # Command ID + payload length
+
+    # Frame without CRC
+    frame = bytearray([length, command_id]) + payload
+
+    # Calculate CRC
+    crc = 0
+    for b in frame:
+        crc = crc8_dvb_s2(crc, b)
+    frame.append(crc)
+
+    # Send frame
+    serial_port.write(frame)
+    print("Sent CRSF ping")
+
+
 # Example usage
 if __name__ == "__main__":
     # Open serial connection (adjust '/dev/ttyUSB0' and baudrate as needed)
