@@ -57,6 +57,8 @@ def send_crsf_device_ping_command(serial_port):
 
     # Frame without CRC
     frame = bytearray([length, command_id]) + payload
+    print("send_crsf_device_ping_command")
+    print(f"frame {frame}")
 
     # Calculate CRC
     crc = 0
