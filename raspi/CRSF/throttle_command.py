@@ -30,7 +30,7 @@ def send_crsf_throttle_command(serial_port, throttle_value):
     # Frame assembly
     frame_length = 1 + 1 + payload_length + 1  # Dest Addr + Command ID + Payload + CRC
     frame = bytearray([frame_length, DEST_ADDRESS, COMMAND_ID]) + throttle_bytes
-    print("frame: {}", frame)
+    print(f"frame: {frame}")
     # Calculate and append CRC
     crc = 0
     for b in frame:
