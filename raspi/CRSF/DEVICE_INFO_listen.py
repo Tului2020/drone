@@ -46,7 +46,7 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
         #     time.sleep(0.020)
         if len(input) > 2:
             # print('\n')
-            # print('input', len(input))
+            print('input', len(input))
             # This simple parser works with malformed CRSF streams
             # it does not check the first byte for SYNC_BYTE, but
             # instead just looks for anything where the packet length
