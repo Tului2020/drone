@@ -17,8 +17,20 @@ from connection import ser
 
 # ser.write(bytes([*msg_sync, *msg_len, *msg_type, *msg_payload, checksum]))
 
-ser.write(bytes([0xC8, 0x04, 0x28, 0x00, 0xEA, 0x54, 0x2B, 0xC0]))
 
+# EXTENDED
+msg_sync_byte = [0xC8]              # Sync Byte: To Flight Controller
+msg_len = [0x04]                    # Frame Length: 4
+msg_type = [0x28]                   # Message Type: Ping Device
+msg_destination_address = [0x00]    # Destination Address:
+msg_origin_address = [0xEA]
+msg_payload = [0x54, 0x2B]
+msg_crc = [0xC0]
+ser.write(bytes([*msg_sync_byte, *msg_len, *msg_type, *
+          msg_destination_address, *msg_origin_address, *msg_payload, *msg_crc]))
+
+ser.write(bytes([*[0xC8], *[0x04], *[0x28], *
+          [0x00], *[0xEA], *[0x54, 0x2B], *[0xC0]]))
 
 
 # print(checksum) # 194
