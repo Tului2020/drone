@@ -3,7 +3,7 @@
 import serial
 import argparse
 
-from packet_types import PacketsTypes
+from connection import PacketsTypes
 
 def crc8_dvb_s2(crc, a) -> int:
   crc = crc ^ a
