@@ -51,7 +51,7 @@ def send_crsf_device_ping_command(serial_port):
                 crc = crc << 1
         return crc & 0xFF
 
-    command_id = 0x22  # Hypothetical Command ID for Ping
+    command_id = 0x21  # Hypothetical Command ID for Ping
     payload = bytearray([])  # Assuming no payload for ping
     length = 1 + len(payload)  # Command ID + payload length
 
