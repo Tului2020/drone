@@ -53,12 +53,12 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
             # instead just looks for anything where the packet length
             # is 4-64 bytes, and the CRC validates
             expected_len = input[1] + 2
-            print(f"expected_len {expected_len}")
+            # print(f"expected_len {expected_len}")
             # print('expected_len', expected_len)
             if expected_len > 64 or expected_len < 4:
                 input = []
             elif len(input) >= expected_len:
-                print(f"input {input}")
+                # print(f"input {input}")
                 single = input[:expected_len] # copy out this whole packet
                 input = input[expected_len:] # and remove it from the buffer
 
