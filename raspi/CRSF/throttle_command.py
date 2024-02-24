@@ -74,3 +74,4 @@ if __name__ == "__main__":
     # Open serial connection (adjust '/dev/ttyUSB0' and baudrate as needed)
     with serial.Serial('/dev/ttyS0', 416666, timeout=1) as ser:
         send_crsf_throttle_command(ser, 512)  # Send a mid-range throttle command
+        send_crsf_device_ping_command(ser)
