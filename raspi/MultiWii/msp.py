@@ -497,4 +497,5 @@ class MultiWii:
             print(error)
 
 board = MultiWii('/dev/ttyS0')
+board.enable_arm()
 board.arm()
