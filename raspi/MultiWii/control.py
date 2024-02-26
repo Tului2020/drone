@@ -1,11 +1,7 @@
 #!/usr/bin/env python
-
-from msp import MultiWii
+from board import board
 from util import push16
 import time
-
-board = MultiWii("/dev/ttyS0")
-print("Flight Controller connected!")
 
 board.enable_arm()
 board.arm()
@@ -36,10 +32,10 @@ while True:
     push16(buf, 1000)
 
     # send rc command
-    board.sendCMD(MultiWii.SET_RAW_RC, buf)
+    board.sendCMD(board.SET_RAW_RC, buf)
     time.sleep(0.025)
 
     # print board attitude
-    board.getData(MultiWii.ATTITUDE)
+    board.getData(board.ATTITUDE)
     print(board.attitude)
     time.sleep(0.025)
