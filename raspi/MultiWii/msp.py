@@ -495,7 +495,3 @@ class MultiWii:
         except Exception as error:
             print("Error in getData2cmd")
             print(error)
-
-board = MultiWii('/dev/ttyS0')
-board.enable_arm()
-board.arm()
