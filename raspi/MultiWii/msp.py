@@ -255,7 +255,7 @@ class MultiWii:
         time.sleep(0.05)
         print('Arm protection on; arming is disallowed...')
 
-    def motor(self):
+    def motor_test(self):
         for _ in range(20):
             buf = []
             util.push16(buf, 1100)
