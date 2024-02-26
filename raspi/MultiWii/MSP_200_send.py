@@ -1,7 +1,3 @@
-# For this to work, BetaFlight needs the following configration
-# 1. Ports      -> Correct UART Port needs to be configured as "Configuration/MSP"
-# 2. Receiver   -> Receiver Mode also needs to be configured for "MSP (control via MSP port)"
-
 from connection import ser
 import time
 

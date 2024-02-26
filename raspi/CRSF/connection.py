@@ -1,9 +1,14 @@
-# import serial
+# For this to work, BetaFlight needs the following configration
+# 1. Ports      -> Correct UART Port needs to be configured as "Serial Rx"
+# 2. Receiver   -> Receiver Mode also needs to be configured for "Serial (via UART)"
+# 3. Receiver   -> TELEMETRY needs to be enabled
+
+import serial
 from enum import IntEnum
 
-# ser = serial.Serial('/dev/ttyS0', 416666, timeout=2)
-# if not ser.is_open:
-#     ser.open()
+ser = serial.Serial('/dev/ttyS0', 416666, timeout=2)
+if not ser.is_open:
+    ser.open()
 
 
 class PacketsTypes(IntEnum):
