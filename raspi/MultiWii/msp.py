@@ -255,6 +255,20 @@ class MultiWii:
         time.sleep(0.05)
         print('Arm protection on; arming is disallowed...')
 
+    def motor(self):
+        for _ in range(20):
+            buf = []
+            util.push16(buf, 1100)
+            util.push16(buf, 1100)
+            util.push16(buf, 1100)
+            util.push16(buf, 1100)
+            util.push16(buf, 1100)
+            util.push16(buf, 1100)
+            util.push16(buf, 1100)
+            util.push16(buf, 1100)
+            self.sendCMD(MultiWii.SET_MOTOR, buf)
+            time.sleep(0.05)
+
     # def setPID(self, pd):
     #     nd = []
     #     for i in np.arange(1, len(pd), 2):
