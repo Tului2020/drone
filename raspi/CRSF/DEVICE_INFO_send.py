@@ -5,27 +5,14 @@
 
 from connection import ser
 
-# msg_sync = [0xEE]
-# msg_len = [0x03]
-# msg_type = [0x28]
-# msg_payload = [0x00, 0xEA]
-# msg_crc = [0x54]
-
-# checksum = 0
-# for i in [*msg_type, *msg_payload]:
-#     checksum ^= i
-
-# ser.write(bytes([*msg_sync, *msg_len, *msg_type, *msg_payload, checksum]))
-
-
 # EXTENDED
 msg_sync_byte = [0xC8]              # Sync Byte: To Flight Controller
 msg_len = [0x04]                    # Frame Length: 4
 msg_type = [0x28]                   # Message Type: Ping Device
-msg_destination_address = [0x00]    # Destination Address:
-msg_origin_address = [0xEA]
-msg_payload = [0x54, 0x2B]
-msg_crc = [0xC0]
+msg_destination_address = [0x00]    # Destination Address: Broadcast Address
+msg_origin_address = [0xEA]         # Origin Address: Radio Transmitter
+msg_payload = [0x54, 0x2B]          # 
+msg_crc = [0xC0]                    # Checksum
 
 # ser.write(bytes(
 #     [
@@ -62,3 +49,6 @@ ser.write(bytes(
 #         00 = CRSF_ADDRESS_BROADCAST (extended destination)
 #         EA = CRSF_ADDRESS_RADIO_TRANSMITTER (extended source)
 # 54 = CRC[]
+
+
+# [238, 6, 44, 238, 234, 1, 0, 134]
