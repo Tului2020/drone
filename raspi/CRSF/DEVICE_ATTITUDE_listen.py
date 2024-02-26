@@ -31,6 +31,7 @@ def handleCrsfPacket(ptype, data):
         roll = int.from_bytes(data[5:7], byteorder='big', signed=True) / 10000.0
         yaw = int.from_bytes(data[7:9], byteorder='big', signed=True) / 10000.0
         print(' '.join(map(hex, data)))
+        print([byte for byte in data])
         print(f"Attitude: Pitch={pitch:0.2f} Roll={roll:0.2f} Yaw={yaw:0.2f} (rad)")
 
 
