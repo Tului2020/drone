@@ -26,9 +26,11 @@ def signed_byte(b):
     return b - 256 if b >= 128 else b
 
 def handleCrsfPacket(ptype, data):
-    if ptype == PacketsTypes.DEVICE_INFO:
-        packet = ' '.join(map(hex, data))
-        print(f"Device Info: {packet}")
+    if ptype == PacketsTypes.ATTITUDE:
+        pitch = int.from_bytes(data[3:5], byteorder='big', signed=True) / 10000.0
+        roll = int.from_bytes(data[5:7], byteorder='big', signed=True) / 10000.0
+        yaw = int.from_bytes(data[7:9], byteorder='big', signed=True) / 10000.0
+        print(f"Attitude: Pitch={pitch:0.2f} Roll={roll:0.2f} Yaw={yaw:0.2f} (rad)")
 
 
 parser = argparse.ArgumentParser()
