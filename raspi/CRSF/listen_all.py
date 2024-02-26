@@ -1,9 +1,4 @@
-import serial
-
-ser = serial.Serial('/dev/ttyS0', 416666, timeout=2)
-if not ser.is_open:
-    ser.open()
-
+from connection import ser
 iter = 0
 
 try:
@@ -18,7 +13,5 @@ try:
                 print('FOUND')
 
             iter += 1
-
-
 except KeyboardInterrupt:
     pass

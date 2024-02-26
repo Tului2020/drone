@@ -1,29 +1,6 @@
-import serial
 import time
-import argparse
+from connection import ser, PacketsTypes, crsf_validate_frame
 
-from connection import PacketsTypes
-
-def crc8_dvb_s2(crc, a) -> int:
-  crc = crc ^ a
-  for ii in range(8):
-    if crc & 0x80:
-      crc = (crc << 1) ^ 0xD5
-    else:
-      crc = crc << 1
-  return crc & 0xFF
-
-def crc8_data(data) -> int:
-    crc = 0
-    for a in data:
-        crc = crc8_dvb_s2(crc, a)
-    return crc
-
-def crsf_validate_frame(frame) -> bool:
-    return crc8_data(frame[2:-1]) == frame[-1]
-
-def signed_byte(b):
-    return b - 256 if b >= 128 else b
 
 def handleCrsfPacket(ptype, data):
     if ptype == PacketsTypes.DEVICE_INFO:
@@ -31,13 +8,9 @@ def handleCrsfPacket(ptype, data):
         print(f"Device Info: {packet}")
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-P', '--port', default='/dev/ttyS0', required=False)
-parser.add_argument('-b', '--baud', default=416666, required=False)
-args = parser.parse_args()
+input = bytearray()
 
-with serial.Serial(args.port, args.baud, timeout=2) as ser:
-    input = bytearray()
+try:
     while True:
         if ser.in_waiting > 0:
             input.extend(ser.read(ser.in_waiting))
@@ -57,11 +30,13 @@ with serial.Serial(args.port, args.baud, timeout=2) as ser:
                 input = []
             elif len(input) >= expected_len:
                 # print(f"input {input}")
-                single = input[:expected_len] # copy out this whole packet
-                input = input[expected_len:] # and remove it from the buffer
+                single = input[:expected_len]  # copy out this whole packet
+                input = input[expected_len:]  # and remove it from the buffer
 
-                if not crsf_validate_frame(single): # single[-1] != crc:
+                if not crsf_validate_frame(single):  # single[-1] != crc:
                     packet = ' '.join(map(hex, single))
                     print(f"crc error: {packet}")
                 else:
                     handleCrsfPacket(single[2], single)
+except KeyboardInterrupt:
+    pass
