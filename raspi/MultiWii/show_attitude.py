@@ -3,7 +3,7 @@ from board import board
 
 try:
     while True:
-        board.getData(MultiWii.ATTITUDE)
+        board.getData(board.ATTITUDE)
         # print(board.attitude) # uncomment for regular printing
 
         # Fancy printing (might not work on windows...)
