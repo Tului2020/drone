@@ -413,7 +413,7 @@ class MultiWii:
     def getDataInf(self, cmd):
         while True:
             try:
-                start = time.clock()
+                start = time.time()
                 self.sendCMD(cmd, [])
                 while True:
                     header = self.ser.read().decode('utf-8')
@@ -424,7 +424,7 @@ class MultiWii:
                 code = struct.unpack('<b', self.ser.read())
                 data = self.ser.read(datalength)
                 temp = struct.unpack('<'+'h'*int(datalength/2), data)
-                elapsed = time.clock() - start
+                elapsed = time.time() - start
                 self.ser.flushInput()
                 self.ser.flushOutput()
                 if cmd == MultiWii.ATTITUDE:
