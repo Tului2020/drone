@@ -10,5 +10,5 @@ try:
         stdout.write("\r%s" % message )
         stdout.flush()
         # End of fancy printing
-except Exception,error:
+except Exception error:
     print ("Error on Main: "+str(error))
