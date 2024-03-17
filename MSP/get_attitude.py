@@ -3,8 +3,9 @@ from shell import board
 from time import sleep
 
 try:
-    print(board.getData(board.ATTITUDE))
-    sleep(0.01)
+    while True:
+        print(board.getData(board.ATTITUDE))
+        sleep(0.01)
 
 except KeyboardInterrupt:
     print("Program stopped by user")
