@@ -1,0 +1,13 @@
+# Get the attitude of the flight controller
+from shell import board
+from time import sleep
+
+try:
+    print(board.getData(board.ATTITUDE))
+    sleep(0.01)
+
+except KeyboardInterrupt:
+    print("Program stopped by user")
+    board.ser.close()
+    print("Serial port closed")
+    exit()
