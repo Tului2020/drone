@@ -270,18 +270,16 @@ class MultiWii:
             time.sleep(0.05)
 
     def set_motor_individual(self, m1_value, m2_value, m3_value, m4_value):
-        for _ in range(20):
-            buf = []
-            util.push16(buf, m1_value)
-            util.push16(buf, m2_value)
-            util.push16(buf, m3_value)
-            util.push16(buf, m4_value)
-            util.push16(buf, 1100)
-            util.push16(buf, 1100)
-            util.push16(buf, 1100)
-            util.push16(buf, 1100)
-            self.sendCMD(MultiWii.SET_MOTOR, buf)
-            time.sleep(0.05)
+        buf = []
+        util.push16(buf, m1_value)
+        util.push16(buf, m2_value)
+        util.push16(buf, m3_value)
+        util.push16(buf, m4_value)
+        util.push16(buf, 1100)
+        util.push16(buf, 1100)
+        util.push16(buf, 1100)
+        util.push16(buf, 1100)
+        self.sendCMD(MultiWii.SET_MOTOR, buf)
 
     # def setPID(self, pd):
     #     nd = []
