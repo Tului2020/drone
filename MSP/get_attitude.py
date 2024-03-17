@@ -5,7 +5,7 @@ from time import sleep
 try:
     while True:
         print(board.getData(board.ATTITUDE))
-        sleep(0.01)
+        sleep(0.02)
 
 except KeyboardInterrupt:
     print("Program stopped by user")
