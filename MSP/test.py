@@ -5,12 +5,13 @@ total_time = 3
 start_speed = 1000
 end_speed = 1400
 delta_speed =  end_speed - start_speed
-delt_time = total_time / delta_speed
+delta_time = total_time / delta_speed * 0.001
 
 
 for i in range(start_speed, end_speed):
-    board.set_motor(i)
-    sleep(delt_time)
+    board.set_motor_individual(i, i, i, i)
+    print(delta_time, i)
+    sleep(delta_time)
 
 
-board.set_motor(1000)
+board.set_motor_individual(i, i, i, i)
