@@ -313,9 +313,10 @@ class MultiWii:
         self.sendCMD(MultiWii.SET_PID, data)
         self.sendCMD(MultiWii.EEPROM_WRITE, [])
 
-    def get_attitude(self):
+    def get_attitude(self, continuous=False):
         print('Getting attitude...')
-        time.sleep(0.02)
+        if not continuous:
+            time.sleep(0.02)
         return self.getData(self.ATTITUDE)
     
     def get_imu(self):
