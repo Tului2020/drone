@@ -280,7 +280,7 @@ class MultiWii:
         util.push16(buf, 1100)
         self.sendCMD(MultiWii.SET_MOTOR, buf)
 
-    def feature_jump(self, start_speed, end_speed, total_time, debug=False):
+    def feature_jump(self, start_speed=1000, end_speed=1400, total_time=2, debug=False):
         half_time = total_time / 2
 
         self.sendCMD(MultiWii.IDENT, [])
