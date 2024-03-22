@@ -5,7 +5,7 @@ total_time = 3
 start_speed = 1000
 end_speed = 1400
 delta_speed =  end_speed - start_speed
-delta_time = total_time / delta_speed
+delta_time = delta_speed / total_time
 
 
 # for i in range(start_speed, end_speed):
