@@ -304,38 +304,43 @@ class MultiWii:
                 print(round(time_passed), delta_time, speed)
             time.sleep(delta_time)
 
+    def setPID(self, pd):
+        nd = []
+        # for i in np.arange(1, len(pd), 2):
+        #     nd.append(pd[i]+pd[i+1]*256)
+        data = pd
+        print("PID sending:", data)
+        self.sendCMD(MultiWii.SET_PID, data)
+        self.sendCMD(MultiWii.EEPROM_WRITE, [])
 
-    # def setPID(self, pd):
-    #     nd = []
-    #     for i in np.arange(1, len(pd), 2):
-    #         nd.append(pd[i]+pd[i+1]*256)
-    #     data = pd
-    #     print("PID sending:", data)
-    #     self.sendCMD(MultiWii.SET_PID, data)
-    #     self.sendCMD(MultiWii.EEPROM_WRITE, [])
+    def get_attitude(self):
+        return self.getData(self.ATTITUDE)
+    
+    def get_imu(self):
+        return self.getData(self.RAW_IMU)
 
-    # def setVTX(self, band, channel, power):
-    #     band_channel = ((band-1) << 3) | (channel-1)
-    #     t = None
-    #     while t == None:
-    #         t = self.getData(MultiWii.VTX_CONFIG)
-    #     different = (self.vtxConfig['band'] != band) | (
-    #         self.vtxConfig['channel'] != channel) | (self.vtxConfig['power'] != power)
-    #     data = [band_channel, power, self.vtxConfig['pit']]
-    #     while different:
-    #         self.sendCMD(MultiWii.VTX_SET_CONFIG, data)
-    #         time.sleep(1)
-    #         self.sendCMD(MultiWii.EEPROM_WRITE, [])
-    #         self.ser.close()
-    #         time.sleep(3)
-    #         self.ser.open()
-    #         time.sleep(3)
-    #         t = None
-    #         while t == None:
-    #             t = self.getData(MultiWii.VTX_CONFIG)
-    #         print(t)
-    #         different = (self.vtxConfig['band'] != band) | (
-    #             self.vtxConfig['channel'] != channel) | (self.vtxConfig['power'] != power)
+    def setVTX(self, band, channel, power):
+        band_channel = ((band-1) << 3) | (channel-1)
+        t = None
+        while t == None:
+            t = self.getData(MultiWii.VTX_CONFIG)
+        different = (self.vtxConfig['band'] != band) | (
+            self.vtxConfig['channel'] != channel) | (self.vtxConfig['power'] != power)
+        data = [band_channel, power, self.vtxConfig['pit']]
+        while different:
+            self.sendCMD(MultiWii.VTX_SET_CONFIG, data)
+            time.sleep(1)
+            self.sendCMD(MultiWii.EEPROM_WRITE, [])
+            self.ser.close()
+            time.sleep(3)
+            self.ser.open()
+            time.sleep(3)
+            t = None
+            while t == None:
+                t = self.getData(MultiWii.VTX_CONFIG)
+            print(t)
+            different = (self.vtxConfig['band'] != band) | (
+                self.vtxConfig['channel'] != channel) | (self.vtxConfig['power'] != power)
 
     """Function to receive a data packet from the board"""
 
