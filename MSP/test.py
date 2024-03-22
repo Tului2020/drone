@@ -1,6 +1,7 @@
 from shell import board
 
 
-print(board.get_attitude())
-print(board.get_imu())
+while True:
+    print(board.get_attitude())
+    print(board.get_imu())
 
