@@ -280,7 +280,7 @@ class MultiWii:
         util.push16(buf, 1100)
         self.sendCMD(MultiWii.SET_MOTOR, buf)
 
-    def feature_jump(self, start_speed=1000, end_speed=1400, total_time=2, debug=False):
+    def feature_jump(self, start_speed=1000, end_speed=1400, total_time=2, debug=False, print_every=1):
         half_time = total_time / 2
 
         self.sendCMD(MultiWii.IDENT, [])
@@ -292,7 +292,7 @@ class MultiWii:
             time_passed = time.time() - start_timestamp
             speed = i
             self.set_motor_individual(speed, speed, speed, speed)
-            if (i % 1) == 0:
+            if (i % print_every) == 0:
                 print(round(time_passed), delta_time, speed)
             time.sleep(delta_time)
 
@@ -300,7 +300,7 @@ class MultiWii:
             time_passed = time.time() - start_timestamp
             speed = end_speed - s + start_speed
             self.set_motor_individual(speed, speed, speed, speed)
-            if (i % 1) == 0:
+            if (i % print_every) == 0:
                 print(round(time_passed), delta_time, speed)
             time.sleep(delta_time)
 
