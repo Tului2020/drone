@@ -1,12 +1,13 @@
 from shell import board
 
-board.feature_jump()
+
 
 # from time import sleep, time
 
-# total_time = 3
-# start_speed = 1000
-# end_speed = 1400
+total_time = 3
+start_speed = 1000
+end_speed = 1400
+board.feature_jump(start_speed, end_speed, total_time, True)
 
 # half_time = total_time / 2
 # delta_speed =  end_speed - start_speed
