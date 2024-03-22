@@ -4,8 +4,10 @@ from time import sleep, time
 total_time = 3
 start_speed = 1000
 end_speed = 1400
+
+half_time = total_time / 2
 delta_speed =  end_speed - start_speed
-delta_time = total_time / delta_speed
+delta_time = half_time / delta_speed
 start_timestamp = time()
 
 
