@@ -13,5 +13,9 @@ for i in range(start_speed, end_speed):
     print(delta_time, i)
     sleep(delta_time)
 
+for i in range(end_speed, start_speed):
+    board.set_motor_individual(i, i, i, i)
+    print(delta_time, i)
+    sleep(delta_time)
 
-board.set_motor_individual(i, i, i, i)
+board.set_motor_individual(1000, 1000, 1000, 1000)
