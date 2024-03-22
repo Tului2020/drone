@@ -314,6 +314,7 @@ class MultiWii:
         self.sendCMD(MultiWii.EEPROM_WRITE, [])
 
     def get_attitude(self):
+        print('Getting attitude...')
         return self.getData(self.ATTITUDE)
     
     def get_imu(self):
