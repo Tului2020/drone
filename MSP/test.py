@@ -14,7 +14,8 @@ delta_time = total_time / delta_speed
 #     sleep(delta_time)
 
 for i in range(end_speed, start_speed):
-    board.set_motor_individual(i, i, i, i)
+    speed = end_speed - i
+    board.set_motor_individual(speed, speed, speed, speed)
     print(delta_time, i)
     sleep(delta_time)
 
