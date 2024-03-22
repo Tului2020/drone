@@ -315,6 +315,7 @@ class MultiWii:
 
     def get_attitude(self):
         print('Getting attitude...')
+        time.sleep(0.02)
         return self.getData(self.ATTITUDE)
     
     def get_imu(self):
