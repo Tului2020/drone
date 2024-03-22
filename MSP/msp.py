@@ -13,7 +13,7 @@ import serial
 import time
 import struct
 import util
-
+from time import time, sleep
 
 class MultiWii:
 
@@ -280,6 +280,31 @@ class MultiWii:
         util.push16(buf, 1100)
         util.push16(buf, 1100)
         self.sendCMD(MultiWii.SET_MOTOR, buf)
+
+    def feature_jump(self, start_speed, end_speed, total_time, debug=False):
+        half_time = total_time / 2
+
+        self.sendCMD(MultiWii.IDENT, [])
+        delta_speed =  end_speed - start_speed
+        delta_time = half_time / delta_speed
+        start_timestamp = time()
+
+        for i in range(start_speed, end_speed):
+            time_passed = time() - start_timestamp
+            speed = i
+            self.set_motor_individual(speed, speed, speed, speed)
+            if (i % 1) == 0:
+                print(round(time_passed), delta_time, speed)
+            sleep(delta_time)
+
+        for s in range(start_speed, end_speed + 1):
+            time_passed = time() - start_timestamp
+            speed = end_speed - s + start_speed
+            self.set_motor_individual(speed, speed, speed, speed)
+            if (i % 1) == 0:
+                print(round(time_passed), delta_time, speed)
+            sleep(delta_time)
+
 
     # def setPID(self, pd):
     #     nd = []
