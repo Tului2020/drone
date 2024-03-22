@@ -313,13 +313,18 @@ class MultiWii:
         self.sendCMD(MultiWii.SET_PID, data)
         self.sendCMD(MultiWii.EEPROM_WRITE, [])
 
-    def get_attitude(self, continuous=False):
-        print('Getting attitude...')
+    def get_attitude(self, continuous=False, debug=False):
+        if debug:
+            print('Getting attitude...')
         if not continuous:
             time.sleep(0.02)
         return self.getData(self.ATTITUDE)
     
-    def get_imu(self):
+    def get_imu(self, continuous=False, debug=False):
+        if debug:
+            print('Getting attitude...')
+        if not continuous:
+            time.sleep(0.02)
         return self.getData(self.RAW_IMU)
 
     def setVTX(self, band, channel, power):
