@@ -10,17 +10,22 @@ delta_speed =  end_speed - start_speed
 delta_time = half_time / delta_speed
 start_timestamp = time()
 
-
-# for i in range(start_speed, end_speed):
-#     board.set_motor_individual(i, i, i, i)
-#     print(delta_time, i)
-#     sleep(delta_time)
+for i in range(start_speed, end_speed):
+    time_passed = time() - start_timestamp
+    speed = i
+    board.set_motor_individual(speed, speed, speed, speed)
+    if (i % 10) == 0:
+        print(round(time_passed), delta_time, speed)
+        
+    print(delta_time, i)
+    sleep(delta_time)
 
 for i in range(start_speed, end_speed):
     time_passed = time() - start_timestamp
     speed = end_speed - i
-    # board.set_motor_individual(speed, speed, speed, speed)
-    print(time_passed, delta_time, i)
+    board.set_motor_individual(speed, speed, speed, speed)
+    if (i % 100) == 0:
+        print(round(time_passed), delta_time, speed)
     sleep(delta_time)
 
 # board.set_motor_individual(1000, 1000, 1000, 1000)
