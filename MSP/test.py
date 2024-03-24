@@ -18,7 +18,7 @@ def format_data(data):
     return return_string
 
 while True:
-    print(format_data(board.get_attitude()))
+    print(format_data(board.get_imu()))
     # pprint(x['ax'])
     # # print(board.get_attitude())
 
