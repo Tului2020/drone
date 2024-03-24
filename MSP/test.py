@@ -1,8 +1,8 @@
 from shell import board
 
 while True:
-    data = board.get_attitude()
     try:
+        data = board.get_attitude()
         pitch = data['angy']
         roll = data['angx']
         heading = data['heading']
