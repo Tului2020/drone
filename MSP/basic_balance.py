@@ -1,8 +1,13 @@
 from shell import board
+import argparse
 
 print("Drone service starting...")
 
-multiplier = 5
+parser = argparse.ArgumentParser(description='Speed multiplier')
+parser.add_argument('mult', type=int, help='Speed multiplier',default=5)
+args = parser.parse_args()
+
+multiplier = args.mult
 
 while True:
     try:
