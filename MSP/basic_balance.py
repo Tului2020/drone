@@ -1,5 +1,7 @@
 from shell import board
 
+print("Drone service starting...")
+
 multiplier = 20
 
 while True:
