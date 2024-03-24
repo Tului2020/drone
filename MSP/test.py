@@ -14,12 +14,20 @@ while True:
         speed_motor_2 = 1000
         speed_motor_3 = 1000
         speed_motor_4 = 1000
-        if pitch > 0:
-            speed_motor_1 += pitch * multiplier
-            speed_motor_3 += pitch * multiplier
+
+        # if pitch > 0:
+        #     speed_motor_1 += pitch * multiplier
+        #     speed_motor_3 += pitch * multiplier
+        # else:
+        #     speed_motor_2 += -pitch * multiplier
+        #     speed_motor_4 += -pitch * multiplier
+
+        if roll > 0:
+            speed_motor_1 += roll * multiplier
+            speed_motor_2 += roll * multiplier
         else:
-            speed_motor_2 += -pitch * multiplier
-            speed_motor_4 += -pitch * multiplier
+            speed_motor_3 += -roll * multiplier
+            speed_motor_4 += -roll * multiplier
 
         print(data)
         print(speed_motor_1, speed_motor_2, speed_motor_3, speed_motor_4)
