@@ -1,6 +1,6 @@
 from shell import board
 
-multiplier = 10
+multiplier = 20
 
 while True:
     try:
