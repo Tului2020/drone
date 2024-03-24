@@ -12,6 +12,7 @@ multiplier = args.mult
 while True:
     try:
         data = board.get_attitude()
+        print(data)
 
         pitch = int(data['angy'])
         roll = int(data['angx'])
