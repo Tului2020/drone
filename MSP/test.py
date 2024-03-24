@@ -9,8 +9,6 @@ def format_data(data):
 
     for key in ['ax', 'ay', 'az', 'gx', 'gy', 'gz', 'mx', 'my', 'mz']:
         try:
-            print(key)
-            print(data[key])
             return_string += format_str.format(key, data[key])
         except:
             pass
