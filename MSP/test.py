@@ -22,7 +22,7 @@ while True:
         print(data)
         print(speed_motor_1, speed_motor_2, speed_motor_3, speed_motor_4)
 
-        # board.set_motor_individual(speed_motor_1, speed_motor_2, speed_motor_3, speed_motor_4)
+        board.set_motor_individual(speed_motor_1, speed_motor_2, speed_motor_3, speed_motor_4)
     except KeyboardInterrupt:
         board.set_motor(0)
         break
