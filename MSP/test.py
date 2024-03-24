@@ -1,5 +1,7 @@
 from shell import board
 
+board.feature_jump()
+
 while True:
     try:
         data = board.get_attitude()
