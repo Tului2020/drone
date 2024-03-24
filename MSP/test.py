@@ -1,4 +1,5 @@
 from shell import board
+from time import sleep
 
 board.feature_jump()
 
@@ -22,6 +23,7 @@ while True:
             speed_motor_4 = -pitch
 
         board.set_motor_individual(speed_motor_1, speed_motor_2, speed_motor_3, speed_motor_4)
+        sleep(0.2)
 
     except KeyboardInterrupt:
         board.set_motor(0)
