@@ -5,15 +5,22 @@ board.feature_jump()
 while True:
     try:
         data = board.get_attitude()
-        pitch = data['angy']
-        roll = data['angx']
-        heading = data['heading']
 
-        speed_motor_1 = int(pitch * 10)
-        speed_motor_2 = int(pitch * 10)
-        speed_motor_3 = int(pitch * 10)
-        speed_motor_4 = int(pitch * 10)
-        print(speed_motor_1)
+        pitch = int(data['angy'])
+        roll = int(data['angx'])
+        heading = int(data['heading'])
+
+        speed_motor_1 = 1000
+        speed_motor_2 = 1000
+        speed_motor_3 = 1000
+        speed_motor_4 = 1000
+        if pitch > 0:
+            speed_motor_1 = pitch
+            speed_motor_3 = pitch
+        else:
+            speed_motor_2 = -pitch
+            speed_motor_4 = -pitch
+
         board.set_motor_individual(speed_motor_1, speed_motor_2, speed_motor_3, speed_motor_4)
 
     except KeyboardInterrupt:
