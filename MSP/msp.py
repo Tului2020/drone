@@ -283,7 +283,6 @@ class MultiWii:
     def feature_jump(self, start_speed=1000, end_speed=1400, total_time=2, debug=False, print_every=1):
         half_time = total_time / 2
 
-        self.sendCMD(MultiWii.IDENT, [])
         delta_speed =  end_speed - start_speed
         delta_time = half_time / delta_speed
         start_timestamp = time.time()
