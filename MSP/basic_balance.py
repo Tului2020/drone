@@ -4,7 +4,7 @@ import argparse
 print("Drone service starting...")
 
 parser = argparse.ArgumentParser(description='Speed multiplier')
-parser.add_argument('mult', type=int, help='Speed multiplier', default=1, required=False)
+parser.add_argument('--mult', type=int, help='Speed multiplier', default=1)
 args = parser.parse_args()
 
 multiplier = args.mult
