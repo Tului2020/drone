@@ -2,7 +2,7 @@ from shell import board
 
 print("Drone service starting...")
 
-multiplier = 10
+multiplier = 5
 
 while True:
     try:
