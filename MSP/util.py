@@ -8,3 +8,4 @@ def push16(buf, val):
 
     # high byte
     push8(buf, val >> 8)
+    # Test
