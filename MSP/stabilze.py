@@ -13,7 +13,7 @@ try:
         heading = attitude['heading']
 
         # Stablize the drone
-        # TEST
+        # TEST2
 
 
         sleep(0.02)
