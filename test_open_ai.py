@@ -128,7 +128,7 @@ class CRSFPort:
             thr = 1000,       # MUST be below min_check to arm
             aux1 = 2000       # AUX1 high = ARM
         )
-        time.sleep(0.1)       # give FC 2-3 frames
+        time.sleep(0.2)       # give FC 2-3 frames
 
 # ---------------------------------------------------------------------------
 # Tiny demo script -----------------------------------------------------------
@@ -140,11 +140,11 @@ if __name__ == "__main__":
     try:
         while True:
             port.arm()                        # arm the drone
-            port.send_rc(yaw=yaw, thr=1280)   # gentle hover, sweep yaw
-            yaw += step
-            if yaw >= 2000 or yaw <= 1000:
-                step = -step
-            time.sleep(0.02)                 # 50 Hz
+            # port.send_rc(yaw=yaw, thr=1280)   # gentle hover, sweep yaw
+            # yaw += step
+            # if yaw >= 2000 or yaw <= 1000:
+            #     step = -step
+            # time.sleep(0.02)                 # 50 Hz
     except KeyboardInterrupt:
         port.send_rc(thr=1000)               # props off
         print("\nStopped — failsafe low-throttle sent.")
