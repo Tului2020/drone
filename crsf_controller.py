@@ -97,7 +97,7 @@ class CRSFPort:
         Send a 16-channel RC frame at ~50 Hz.
         Values are ordinary PWM microseconds (1000-2000).
         """
-        chans_us = [roll, pitch, yaw, thr, aux1, aux2, aux3, aux4, *extras]
+        chans_us = [roll, pitch, thr, yaw, aux1, aux2, aux3, aux4, *extras]
         chans_us += [1000] * (16 - len(chans_us))          # pad to 16
         chans = [us_to_crsf(x) for x in chans_us]
         payload = pack_rc(chans)
