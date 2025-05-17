@@ -8,6 +8,7 @@ if __name__ == "__main__":
     yaw = 1000
     step = 6
     port.arm()                        # arm the drone
+    port.beep()                       
 
     try:
         while True:
