@@ -22,14 +22,15 @@ aux1 = 1000  # Example value for auxiliary 1
 # Convert values to byte arrays (little-endian format)
 data = struct.pack('<HHHH', roll, pitch, throttle, aux1)
 
-try:
-    port = serial.Serial('/dev/ttyS0', 115200, timeout=3)  # Replace 'COM3' with your port
-    msp_code = 105  # Replace with the MSP code for setting control values
+while True:
+    try:
+        port = serial.Serial('/dev/ttyS0', 115200, timeout=3)  # Replace 'COM3' with your port
+        msp_code = 105  # Replace with the MSP code for setting control values
 
-    send_msp_message(port, msp_code, data)
+        send_msp_message(port, msp_code, data)
 
-    # Close the serial port
-    port.close()
+        # Close the serial port
+        port.close()
 
-except serial.SerialException as e:
-    print(f"Error: {e}")
+    except serial.SerialException as e:
+        print(f"Error: {e}")
