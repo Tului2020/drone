@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     try:
         while True:
-            port.send_rc(yaw=yaw)   # gentle hover, sweep yaw
+            port.send_rc()   # gentle hover, sweep yaw
             yaw += step
             if yaw >= 2000 or yaw <= 1000:
                 step = -step
