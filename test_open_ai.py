@@ -119,12 +119,25 @@ class CRSFPort:
             print(frame.hex(" "))
         self.ser.write(frame)
 
+    def arm(self) -> None:
+        # Example: throttle low, AUX1 high → arm
+        self.send_rc(
+            roll = 1500,
+            pitch = 1500,
+            yaw = 1500,
+            thr = 1000,       # MUST be below min_check to arm
+            aux1 = 2000       # AUX1 high = ARM
+        )
+        time.sleep(0.1)       # give FC 2-3 frames
+
 # ---------------------------------------------------------------------------
 # Tiny demo script -----------------------------------------------------------
 if __name__ == "__main__":
     port = CRSFPort(debug=True)          # prints each frame hex
     yaw   = 1000
     step  = 6
+    port.arm()                        # arm the drone
+
     try:
         while True:
             port.send_rc(yaw=yaw, thr=1280)   # gentle hover, sweep yaw
