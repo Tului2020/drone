@@ -9,11 +9,10 @@ if __name__ == "__main__":
     step = 6
     port.arm()                        # arm the drone
     print("Armed, props on.")
-    port.beep()                       
+    port.beep()
 
     try:
         while True:
-            port.arm()       
             port.send_rc(yaw=yaw, pitch=yaw)   # gentle hover, sweep yaw
             yaw += step
             if yaw >= 2000 or yaw <= 1000:
