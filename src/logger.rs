@@ -1,6 +1,7 @@
 //! Contains the logger for the cloud-comms application.
 use crate::DroneResult;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 use tracing_subscriber::FmtSubscriber;
 
 /// Initializes the logger for the Conductor application.
@@ -10,6 +11,8 @@ pub fn init_logger() -> DroneResult<()> {
         .finish();
     // Set the subscriber as the global default
     tracing::subscriber::set_global_default(subscriber)?;
+
+    info!("Logger initialized");
     Ok(())
 }
 
