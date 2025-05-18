@@ -1,5 +1,6 @@
 //! Library file for Drone application
 #![warn(missing_docs)]
+pub mod app;
 pub mod app_data;
 pub mod error;
 pub mod logger;
