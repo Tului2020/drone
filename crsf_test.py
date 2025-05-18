@@ -13,14 +13,14 @@ step = 6
 
 try:
     for i in range(20):
-        port.send_rc(yaw=yaw, pitch=yaw, aux3=1800)   # gentle hover, sweep yaw
+        port.send_rc(yaw=yaw, pitch=yaw, aux3=1800, aux1=1800)   # gentle hover, sweep yaw
         yaw += step
         if yaw >= 2000 or yaw <= 1000:
             step = -step
         sleep(0.02)                 # 50 Hz
     port.arm()
     while True:
-        port.send_rc(yaw=yaw, pitch=yaw, aux3=1800)   # gentle hover, sweep yaw
+        port.send_rc(yaw=yaw, pitch=yaw, aux3=1800, aux1=1800)   # gentle hover, sweep yaw
         yaw += step
         if yaw >= 2000 or yaw <= 1000:
             step = -step
