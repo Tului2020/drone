@@ -134,7 +134,7 @@ class CRSFPort:
 
     def arm(self) -> None:
         # Example: throttle low, AUX1 high → arm
-        for i in range(10):
+        for i in range(20):
             self.send_rc(aux1=1500)
             time.sleep(0.2)       # give FC 2-3 frames
     
