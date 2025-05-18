@@ -88,7 +88,12 @@ class CRSFPort:
         self.ser = serial.Serial(port, BAUD, timeout=0, exclusive=True)
         self.debug = debug
 
+        for i in range(2):
+            self.send_rc()
+            time.sleep(0.2)
+
     # ---------- RC channels --------------------------------------------------
+
     def send_rc(self,
                 roll: int = 1500, pitch: int = 1500, yaw: int = 1500, thr: int = 885,
                 aux1: int = 1000, aux2: int = 1000, aux3: int = 1000, aux4: int = 1000,
@@ -139,7 +144,6 @@ class CRSFPort:
             time.sleep(0.2)       # give FC 2-3 frames
         self.send_rc()
         time.sleep(0.2)       # give FC 2-3 frames
-
 
     def beep(self) -> None:
         # Example: 1 beep, 1 second
