@@ -5,3 +5,9 @@ edition = "2021"
 
 [dependencies]
 serialport = { version = "=4.7.2", default-features = false }
+thiserror = "2.0.12"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+
+[lib]
+path = "src/lib.rs"
