@@ -137,7 +137,10 @@ class CRSFPort:
         for i in range(20):
             self.send_rc(aux1=1500)
             time.sleep(0.2)       # give FC 2-3 frames
-    
+        self.send_rc()
+        time.sleep(0.2)       # give FC 2-3 frames
+
+
     def beep(self) -> None:
         # Example: 1 beep, 1 second
         self.send_rc(aux2=1500)
