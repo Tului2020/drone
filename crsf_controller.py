@@ -15,7 +15,7 @@ from typing import Iterable
 # Constants (from the C++ header you provided)
 # ---------------------------------------------------------------------------
 SYNC_BYTE = 0xC8          # "address" / sync marker
-BAUD = 416666        # exact integer divisor for Pi PL011
+BAUD = 420000        # exact integer divisor for Pi PL011
 POLY = 0xD5          # CRC-8 DVB-S2 polynomial
 TYPE_RC = 0x16
 TYPE_BATT = 0x08
