@@ -1,0 +1,5 @@
+{
+    "log_level": "INFO",
+    "fc_baud_rate": 420000,
+    "fc_port_name": "/ttyS0"
+}

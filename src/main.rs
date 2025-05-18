@@ -1,9 +1,12 @@
+use drone::app_data::DroneAppData;
 use drone::logger::init_logger;
 use drone::DroneResult;
 use tracing::info;
 
 fn main() -> DroneResult {
-    init_logger()?;
+    let app_data = DroneAppData::load_from_file("./config.json");
+
+    init_logger(&app_data.log_level().clone().into())?;
 
     info!("Starting Drone application...");
 
