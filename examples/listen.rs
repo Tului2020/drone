@@ -8,7 +8,7 @@ fn main() -> DroneResult {
 
     // Read data
     let mut buffer = [0u8; 1024];
-    match app.port().read(&mut buffer) {
+    match app.fc_comms().port().read(&mut buffer) {
         Ok(n) => info!("Received: {:?}", &buffer[..n]),
         Err(e) => error!("Read failed: {e}"),
     }

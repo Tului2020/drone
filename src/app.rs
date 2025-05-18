@@ -1,18 +1,14 @@
 //! The main application
-
-use std::time::Duration;
-
-use serialport::SerialPort;
 use tracing::info;
 
-use crate::{app_data::DroneAppData, logger::init_logger, DroneResult};
+use crate::{app_data::DroneAppData, fc_comms::FcComms, logger::init_logger, DroneResult};
 
 /// Applicaiton
 pub struct App {
     /// Application data
     app_data: DroneAppData,
-    /// Serial port
-    port: Box<dyn SerialPort + 'static>,
+    /// Flight Controller Comms
+    fc_comms: FcComms,
 }
 
 impl App {
@@ -24,12 +20,8 @@ impl App {
         init_logger(&app_data.log_level().clone().into())?;
         info!("Starting Drone application...");
 
-        let port = serialport::new(app_data.fc_port_name(), app_data.fc_baud_rate())
-            .timeout(Duration::from_millis(1000))
-            .open()
-            .unwrap();
-
-        Ok(Self { app_data, port })
+        let fc_comms = FcComms::new(&app_data)?;
+        Ok(Self { app_data, fc_comms })
     }
 
     /// Get the application data
@@ -38,7 +30,7 @@ impl App {
     }
 
     /// Get the application data mutably
-    pub fn port(&mut self) -> &mut dyn SerialPort {
-        self.port.as_mut()
+    pub fn fc_comms(&mut self) -> &mut FcComms {
+        &mut self.fc_comms
     }
 }
