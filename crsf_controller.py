@@ -102,6 +102,9 @@ class CRSFPort:
         Send a 16-channel RC frame at ~50 Hz.
         Values are ordinary PWM microseconds (1000-2000).
         """
+        if self.debug:
+            print(
+                f"send_rc: [{roll}, {pitch}, {yaw}, {thr}, {aux1}, {aux2}, {aux3}, {aux4}]")
         chans_us = [roll, pitch, thr, yaw, aux1, aux2, aux3, aux4, *extras]
         chans_us += [1000] * (16 - len(chans_us))          # pad to 16
         chans = [us_to_crsf(x) for x in chans_us]
@@ -111,12 +114,19 @@ class CRSFPort:
 
     # ---------- Example telemetry helpers -----------------------------------
     def send_battery(self, mv: int, ma: int, fuel_mah: int, remaining_pct: int) -> None:
+        if self.debug:
+            print(
+                f"send_battery: {mv} mV, {ma} mA, {fuel_mah} mAh, {remaining_pct}")
         payload = struct.pack(">HHHB",
                               mv, ma, fuel_mah & 0xFFFFFF, remaining_pct)
         frame = build_frame(TYPE_BATT, payload)
         self._write(frame)
 
     def send_attitude(self, pitch_deg: float, roll_deg: float, yaw_deg: float) -> None:
+        if self.debug:
+            print(
+                f"send_attitude: {pitch_deg} pitch_deg, {roll_deg} roll_deg, {yaw_deg} yaw_deg")
+
         # 0.01 deg packed (same as Crossfire)
         payload = struct.pack(">hhh",
                               int(pitch_deg*100),
@@ -126,6 +136,9 @@ class CRSFPort:
         self._write(frame)
 
     def send_flight_mode(self, text: str) -> None:
+        if self.debug:
+            print(
+                f"send_flight_mode: {text}")
         buf = text.encode()[:15] + b"\0"      # max 16 incl. NUL
         payload = buf.ljust(16, b"\0")
         frame = build_frame(TYPE_FLIGHT_MODE, payload[:len(buf)+1])
@@ -133,8 +146,8 @@ class CRSFPort:
 
     # ---------- internals ----------------------------------------------------
     def _write(self, frame: bytes) -> None:
-        if self.debug:
-            print(frame.hex(" "))
+        # if self.debug:
+        #     print(frame.hex(" "))
         self.ser.write(frame)
 
     def arm(self) -> None:
