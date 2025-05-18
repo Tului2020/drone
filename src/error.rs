@@ -6,4 +6,8 @@ pub enum DroneError {
     /// Logger Errors
     #[error(transparent)]
     SetGlobalDefaultError(#[from] tracing::subscriber::SetGlobalDefaultError),
+
+    /// Not found
+    #[error("Serial Port: {0}")]
+    SerialPort(String),
 }
