@@ -20,5 +20,5 @@ if __name__ == "__main__":
                 step = -step
             sleep(0.02)                 # 50 Hz
     except KeyboardInterrupt:
-        port.send_rc(thr=1000)               # props off
+        # port.send_rc(thr=1000)               # props off
         print("\nStopped — failsafe low-throttle sent.")
