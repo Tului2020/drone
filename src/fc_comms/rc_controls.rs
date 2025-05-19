@@ -13,6 +13,7 @@ pub struct RcControls {
 }
 
 impl RcControls {
+    #[cfg(feature = "real")]
     pub fn chans_us(&self) -> [u16; 16] {
         [
             self.roll, self.pitch, self.thr, self.yaw, self.aux1, self.aux2, self.aux3, self.aux4,

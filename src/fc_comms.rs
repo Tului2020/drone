@@ -1,31 +1,37 @@
 //! Module for FC communications
 mod rc_controls;
 
+use std::sync::{Arc, Mutex};
+#[cfg(feature = "real")]
 use std::{
-    sync::{Arc, Mutex},
     thread::{sleep, spawn as thread_spawn},
     time::Duration,
 };
 
 use rc_controls::RcControls;
+#[cfg(feature = "real")]
 use serialport::SerialPort;
-use tracing::{debug, error};
+use tracing::debug;
+#[cfg(feature = "real")]
+use tracing::error;
 
-use crate::{app_data::DroneAppData, error::DroneError, DroneResult};
+#[cfg(feature = "real")]
+use crate::error::DroneError;
+use crate::{app_data::DroneAppData, DroneResult};
 
-const SYNC_BYTE: u8 = 0xC8; // "address" / sync marker
-const POLY: u8 = 0xD5; // CRC-8 DVB-S2 polynomial
+#[cfg(feature = "real")]
+const SYNC_BYTE: u8 = 0xC8;
+#[cfg(feature = "real")]
+const POLY: u8 = 0xD5;
+#[cfg(feature = "real")]
 const TYPE_RC: u8 = 0x16;
-// const TYPE_BATT: u8 = 0x08;
-// const TYPE_GPS: u8 = 0x02;
-// const TYPE_ATTITUDE: u8 = 0x1E;
-// const TYPE_FLIGHT_MODE: u8 = 0x21;
-// const FRAME_OVERHEAD: u8 = 4;
-const PAYLOAD_LEN_RC: u8 = 22; // 16 × 11 bit = 176 bit = 22 byte
+#[cfg(feature = "real")]
+const PAYLOAD_LEN_RC: u8 = 22;
 
 /// FC communications
 pub struct FcComms {
     /// Serial port
+    #[cfg(feature = "real")]
     port: Arc<Mutex<Box<dyn SerialPort + 'static>>>,
     /// RC controls
     rc_controls: Arc<Mutex<RcControls>>,
@@ -36,6 +42,7 @@ impl FcComms {
     pub fn new(app_data: &DroneAppData) -> DroneResult<Self> {
         let port_name = app_data.fc_port_name();
         let baud_rate = app_data.fc_baud_rate();
+        #[cfg(feature = "real")]
         let port = Arc::new(Mutex::new(
             serialport::new(port_name, baud_rate)
                 .timeout(Duration::from_millis(1000))
@@ -49,25 +56,31 @@ impl FcComms {
 
         let rc_controls = Arc::new(Mutex::new(RcControls::default()));
 
-        let rc_controls_clone = rc_controls.clone();
-        let port_clone = port.clone();
-        thread_spawn(move || loop {
-            {
-                let chans_us = { rc_controls_clone.lock().unwrap().chans_us() };
-                let chans: Vec<u16> = chans_us.iter().map(|&x| us_to_crsf(x)).collect();
-                let payload = pack_rc(&chans);
-                let frame = build_frame(TYPE_RC, &payload);
+        #[cfg(feature = "real")]
+        {
+            let (rc_controls_clone, port_clone) = (rc_controls.clone(), port.clone());
+            thread_spawn(move || loop {
+                {
+                    let chans_us = { rc_controls_clone.lock().unwrap().chans_us() };
+                    let chans: Vec<u16> = chans_us.iter().map(|&x| us_to_crsf(x)).collect();
+                    let payload = pack_rc(&chans);
+                    let frame = build_frame(TYPE_RC, &payload);
 
-                let _s = port_clone.lock().unwrap().write_all(&frame).map_err(|e| {
-                    error!("Failed to send RC data: {e}");
-                    DroneError::SerialPort("Failed to send RC data".to_string())
-                });
-            }
+                    let _s = port_clone.lock().unwrap().write_all(&frame).map_err(|e| {
+                        error!("Failed to send RC data: {e}");
+                        DroneError::SerialPort("Failed to send RC data".to_string())
+                    });
+                }
 
-            sleep(Duration::from_millis(20));
-        });
+                sleep(Duration::from_millis(20));
+            });
+        }
 
-        Ok(Self { port, rc_controls })
+        Ok(Self {
+            #[cfg(feature = "real")]
+            port,
+            rc_controls,
+        })
     }
 
     /// Send RC data
@@ -112,30 +125,38 @@ impl FcComms {
 
     /// Listen to the serial port
     pub fn listen(&mut self) -> DroneResult<()> {
-        let mut buffer = [0u8; 1024];
-        loop {
-            match self.port.lock().unwrap().read(&mut buffer) {
-                Ok(n) => {
-                    if n > 0 {
-                        debug!("Received: {:?}", &buffer[..n]);
-                        // Process the received data
+        #[cfg(feature = "real")]
+        {
+            let mut buffer = [0u8; 1024];
+            loop {
+                match self.port.lock().unwrap().read(&mut buffer) {
+                    Ok(n) => {
+                        if n > 0 {
+                            debug!("Received: {:?}", &buffer[..n]);
+                            // Process the received data
+                        }
                     }
-                }
-                Err(e) => {
-                    error!("Read failed: {e}");
-                    return Err(DroneError::SerialPort("Read failed".to_string()));
+                    Err(e) => {
+                        error!("Read failed: {e}");
+                        return Err(DroneError::SerialPort("Read failed".to_string()));
+                    }
                 }
             }
         }
+
+        #[cfg(not(feature = "real"))]
+        Ok(())
     }
 }
 
 /// Helper function
+#[cfg(feature = "real")]
 fn us_to_crsf(val_us: u16) -> u16 {
     (((val_us.saturating_sub(988)) as u32 * (1811 - 172)) / (2012 - 988) + 172) as u16
 }
 
 /// Hash function
+#[cfg(feature = "real")]
 fn crc8(data: &[u8]) -> u8 {
     let mut crc = 0u8;
     for &b in data {
@@ -152,6 +173,7 @@ fn crc8(data: &[u8]) -> u8 {
 }
 
 /// Pack RC data
+#[cfg(feature = "real")]
 fn pack_rc(ch: &[u16]) -> [u8; 22] {
     let mut out = [0u8; PAYLOAD_LEN_RC as usize];
     let mut bit_ofs = 0;
@@ -173,6 +195,7 @@ fn pack_rc(ch: &[u16]) -> [u8; 22] {
     out
 }
 
+#[cfg(feature = "real")]
 fn build_frame(frame_type: u8, payload: &[u8]) -> Vec<u8> {
     let length_field = payload.len() as u8 + 2; // TYPE + PAYLOAD + CRC
     let mut hdr = vec![SYNC_BYTE, length_field, frame_type];
