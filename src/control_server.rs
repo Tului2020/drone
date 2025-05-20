@@ -1,5 +1,6 @@
 //! Control server. This module talks to a frontend application and sends messages to
 //! the UDP server.
+use actix_files as fs;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use tokio::net::UdpSocket;
 use tracing::{debug, error};
@@ -47,6 +48,7 @@ impl ControlServer {
         HttpServer::new(move || {
             App::new()
                 .route("/set-rc", web::post().to(Self::set_rc))
+                .service(fs::Files::new("/", "./static").index_file("index.html"))
                 .app_data(udp_client.clone())
         })
         .bind(addr)?

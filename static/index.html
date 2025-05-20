@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>RC Controller</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 2rem;
+        }
+
+        .slider-container {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>RC Control Sliders</h1>
+
+    <div id="sliders">
+        <div class="slider-container">
+            <label for="roll">Roll</label>
+            <input type="range" id="roll" min="1000" max="2000" value="1500">
+        </div>
+        <div class="slider-container">
+            <label for="pitch">Pitch</label>
+            <input type="range" id="pitch" min="1000" max="2000" value="1500">
+        </div>
+        <div class="slider-container">
+            <label for="yaw">Yaw</label>
+            <input type="range" id="yaw" min="1000" max="2000" value="1500">
+        </div>
+        <div class="slider-container">
+            <label for="throttle">Throttle</label>
+            <input type="range" id="thr" min="1000" max="2000" value="1000">
+        </div>
+        <div class="slider-container">
+            <label for="aux1">Aux1</label>
+            <input type="range" id="aux1" min="1000" max="2000" value="1000">
+        </div>
+        <div class="slider-container">
+            <label for="aux2">Aux2</label>
+            <input type="range" id="aux2" min="1000" max="2000" value="1000">
+        </div>
+        <div class="slider-container">
+            <label for="aux3">Aux3</label>
+            <input type="range" id="aux3" min="1000" max="2000" value="1000">
+        </div>
+        <div class="slider-container">
+            <label for="aux4">Aux4</label>
+            <input type="range" id="aux4" min="1000" max="2000" value="1000">
+        </div>
+    </div>
+
+    <script>
+        const sliders = document.querySelectorAll("input[type=range]");
+
+        sliders.forEach(slider => {
+            slider.addEventListener("input", () => {
+                const data = {};
+                sliders.forEach(s => data[s.id] = parseInt(s.value));
+
+                fetch("/set-rc", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
