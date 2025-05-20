@@ -1,1 +1,1 @@
-cross build --target=aarch64-unknown-linux-gnu --release && sudo scp ./target/aarch64-unknown-linux-gnu/release/drone drone@drone.local:/home/drone
+cross build --target=aarch64-unknown-linux-gnu --release --no-default-features --features real --features udp_server && sudo scp ./target/aarch64-unknown-linux-gnu/release/drone drone@drone.local:/home/drone
