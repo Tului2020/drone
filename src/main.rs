@@ -1,31 +1,33 @@
-use std::thread::sleep;
-use std::time::Duration;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::sleep,
+    time::Duration,
+};
 
-use drone::app::App;
-use drone::DroneResult;
+use drone::{app::App, DroneResult};
+
+use tracing::{debug, info};
 
 fn main() -> DroneResult {
-    // Load configuration
-    let mut app = App::new("./config.json")?;
+    let running = Arc::new(AtomicBool::new(true));
+    let running_clone = running.clone();
 
-    let mut x: f32 = 0.0;
+    App::new("./config.json", running.clone())?;
 
-    loop {
-        let val = ((250.0 * x.sin()) as i16 + 1500) as u16;
-        println!("val: {}", val);
+    ctrlc::set_handler(move || {
+        debug!("Ctrl+C detected!");
+        running_clone.store(false, Ordering::SeqCst);
+    })
+    .expect("Error setting Ctrl-C handler");
 
-        app.fc_comms().set_rc_controls(
-            Some(val),
-            Some(val),
-            None,
-            Some(val),
-            Some(val),
-            Some(val),
-            Some(val),
-            Some(val),
-        );
-
-        x += 0.001;
-        sleep(Duration::from_millis(30));
+    while running.load(Ordering::SeqCst) {
+        sleep(Duration::from_secs(1));
     }
+
+    info!("Exiting gracefully.");
+
+    Ok(())
 }

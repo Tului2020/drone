@@ -5,6 +5,8 @@ pub mod app_data;
 pub mod error;
 pub mod fc_comms;
 pub mod logger;
+#[cfg(feature = "udp_server")]
+pub mod udp_server;
 
 /// A type alias for the result of a Conductor operation.
 pub type DroneResult<T = ()> = std::result::Result<T, error::DroneError>;

@@ -1,14 +1,13 @@
 //! Module for FC communications
 mod rc_controls;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
+#[cfg(any(feature = "real", feature = "udp_server"))]
+use std::thread::spawn as thread_spawn;
 #[cfg(feature = "real")]
-use std::{
-    thread::{sleep, spawn as thread_spawn},
-    time::Duration,
-};
+use std::{sync::atomic::Ordering, thread::sleep, time::Duration};
 
-use rc_controls::RcControls;
+pub use rc_controls::RcControls;
 #[cfg(feature = "real")]
 use serialport::SerialPort;
 use tracing::debug;
@@ -17,6 +16,8 @@ use tracing::error;
 
 #[cfg(feature = "real")]
 use crate::error::DroneError;
+#[cfg(feature = "udp_server")]
+use crate::udp_server::UdpServer;
 use crate::{app_data::DroneAppData, DroneResult};
 
 #[cfg(feature = "real")]
@@ -39,25 +40,33 @@ pub struct FcComms {
 
 impl FcComms {
     /// Create a new instance of the FC communications
-    pub fn new(app_data: &DroneAppData) -> DroneResult<Self> {
-        let port_name = app_data.fc_port_name();
-        let baud_rate = app_data.fc_baud_rate();
-        #[cfg(feature = "real")]
-        let port = Arc::new(Mutex::new(
-            serialport::new(port_name, baud_rate)
-                .timeout(Duration::from_millis(1000))
-                .open()
-                .map_err(|e| {
-                    error!("{e}");
-                    DroneError::SerialPort("Could not open port".to_string())
-                })?,
-        ));
-        debug!("Serial port opened: {port_name} at {baud_rate} baud");
+    pub fn new(app_data: &DroneAppData, running: Arc<AtomicBool>) -> DroneResult<Self> {
+        debug!("Creating FC communications {app_data:?} {running:?}");
 
         let rc_controls = Arc::new(Mutex::new(RcControls::default()));
 
-        #[cfg(feature = "real")]
+        #[cfg(feature = "udp_server")]
         {
+            let (rc_controls_clone, running_clone) = (rc_controls.clone(), running.clone());
+            thread_spawn(move || UdpServer::new(rc_controls_clone, running_clone));
+        }
+
+        #[cfg(feature = "real")]
+        let port = {
+            let port_name = app_data.fc_port_name();
+            let baud_rate = app_data.fc_baud_rate();
+
+            let port = Arc::new(Mutex::new(
+                serialport::new(port_name, baud_rate)
+                    .timeout(Duration::from_millis(1000))
+                    .open()
+                    .map_err(|e| {
+                        error!("{e}");
+                        DroneError::SerialPort("Could not open port".to_string())
+                    })?,
+            ));
+            debug!("Serial port opened: {port_name} at {baud_rate} baud");
+
             let (rc_controls_clone, port_clone) = (rc_controls.clone(), port.clone());
             thread_spawn(move || loop {
                 {
@@ -72,9 +81,16 @@ impl FcComms {
                     });
                 }
 
+                if !running.load(Ordering::SeqCst) {
+                    debug!("Stopping RC data thread");
+                    return;
+                }
+
                 sleep(Duration::from_millis(20));
             });
-        }
+
+            port
+        };
 
         Ok(Self {
             #[cfg(feature = "real")]

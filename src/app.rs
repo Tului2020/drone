@@ -1,4 +1,6 @@
 //! The main application
+use std::sync::{atomic::AtomicBool, Arc};
+
 use tracing::info;
 
 use crate::{app_data::DroneAppData, fc_comms::FcComms, logger::init_logger, DroneResult};
@@ -13,14 +15,14 @@ pub struct App {
 
 impl App {
     /// Create a new instance of the application
-    pub fn new(app_data_file_path: &str) -> DroneResult<Self> {
+    pub fn new(app_data_file_path: &str, running: Arc<AtomicBool>) -> DroneResult<Self> {
         // Load configuration
         let app_data = DroneAppData::load_from_file(app_data_file_path);
 
         init_logger(&app_data.log_level().clone().into())?;
         info!("Starting Drone application...");
 
-        let fc_comms = FcComms::new(&app_data)?;
+        let fc_comms = FcComms::new(&app_data, running)?;
         Ok(Self { app_data, fc_comms })
     }
 
