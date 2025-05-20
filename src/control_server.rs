@@ -4,7 +4,7 @@ use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use tokio::net::UdpSocket;
 use tracing::{debug, error};
 
-use crate::{app_data::DroneAppData, error::DroneError, fc_comms::RcControls, DroneResult};
+use crate::{app_data::DroneAppData, fc_comms::RcControls, messages::Message, DroneResult};
 
 /// Control server module.
 pub struct ControlServer {
@@ -108,7 +108,7 @@ impl UdpClient {
     }
 
     pub async fn send_rc(&self, rc_controls: RcControls) -> DroneResult<()> {
-        let msg = format!("set_rc,{}", rc_controls);
+        let msg = serde_json::to_string(&Message::SetRc(rc_controls))?;
 
         self.send(msg.as_bytes()).await
     }

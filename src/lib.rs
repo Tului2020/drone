@@ -7,6 +7,8 @@ pub mod control_server;
 pub mod error;
 pub mod fc_comms;
 pub mod logger;
+#[cfg(any(feature = "control_server", feature = "udp_server"))]
+pub mod messages;
 #[cfg(feature = "udp_server")]
 pub mod udp_server;
 
