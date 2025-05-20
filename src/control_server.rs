@@ -49,17 +49,9 @@ impl ControlServer {
                 .route("/set-rc", web::post().to(Self::set_rc))
                 .app_data(udp_client.clone())
         })
-        .bind(addr)
-        .map_err(|e| {
-            error!("Failed to bind server to {addr}: {e}");
-            DroneError::ServerError(format!("Failed to bind server to {addr}: {e}"))
-        })?
+        .bind(addr)?
         .run()
-        .await
-        .map_err(|e| {
-            error!("Failed to start server: {e}");
-            DroneError::ServerError(format!("Failed to start server: {e}"))
-        })?;
+        .await?;
 
         Ok(())
     }
@@ -74,7 +66,7 @@ impl ControlServer {
         match udp_client.send_rc(rc_controls).await {
             Ok(_) => HttpResponse::Ok(),
             Err(e) => {
-                error!("Failed to send RC controls: {e}");
+                error!("{e}");
                 HttpResponse::InternalServerError()
             }
         }
@@ -97,10 +89,7 @@ impl UdpClient {
     ///
     /// A new instance of `UdpClient`.
     pub async fn new(server_addr: String) -> DroneResult<Self> {
-        let socket = UdpSocket::bind("0.0.0.0:0").await.map_err(|e| {
-            error!("Failed to bind UDP socket: {e}");
-            DroneError::ServerError(format!("Failed to bind UDP socket: {e}"))
-        })?;
+        let socket = UdpSocket::bind("0.0.0.0:0").await?;
 
         Ok(UdpClient {
             socket,
@@ -114,13 +103,7 @@ impl UdpClient {
     ///
     /// * `msg` - The message to send.
     async fn send(&self, msg: &[u8]) -> DroneResult<()> {
-        self.socket
-            .send_to(msg, &self.server_addr)
-            .await
-            .map_err(|e| {
-                error!("Failed to send message to UDP server: {e}");
-                DroneError::ServerError(format!("Failed to send message to UDP server: {e}"))
-            })?;
+        self.socket.send_to(msg, &self.server_addr).await?;
         Ok(())
     }
 

@@ -59,11 +59,7 @@ impl FcComms {
             let port = Arc::new(Mutex::new(
                 serialport::new(port_name, baud_rate)
                     .timeout(Duration::from_millis(1000))
-                    .open()
-                    .map_err(|e| {
-                        error!("{e}");
-                        DroneError::SerialPort("Could not open port".to_string())
-                    })?,
+                    .open()?,
             ));
             debug!("Serial port opened: {port_name} at {baud_rate} baud");
 
@@ -75,10 +71,11 @@ impl FcComms {
                     let payload = pack_rc(&chans);
                     let frame = build_frame(TYPE_RC, &payload);
 
-                    let _s = port_clone.lock().unwrap().write_all(&frame).map_err(|e| {
-                        error!("Failed to send RC data: {e}");
-                        DroneError::SerialPort("Failed to send RC data".to_string())
-                    });
+                    let _s = port_clone
+                        .lock()
+                        .unwrap()
+                        .write_all(&frame)
+                        .map_err(|e| error!("{e}"));
                 }
 
                 if !running.load(Ordering::SeqCst) {
@@ -153,8 +150,7 @@ impl FcComms {
                         }
                     }
                     Err(e) => {
-                        error!("Read failed: {e}");
-                        return Err(DroneError::SerialPort("Read failed".to_string()));
+                        return Err(DroneError::ArcMutexError(e.to_string()));
                     }
                 }
             }

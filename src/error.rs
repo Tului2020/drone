@@ -7,11 +7,20 @@ pub enum DroneError {
     #[error(transparent)]
     SetGlobalDefaultError(#[from] tracing::subscriber::SetGlobalDefaultError),
 
-    /// Not found
-    #[error("Serial Port: {0}")]
-    SerialPort(String),
+    /// Serial port errors
+    #[cfg(feature = "serialport")]
+    #[error(transparent)]
+    SerialPortError(#[from] serialport::Error),
 
-    /// Server related errors
-    #[error("Server error: {0}")]
-    ServerError(String),
+    /// Serde Errors
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
+
+    /// UDP server errors
+    #[error(transparent)]
+    UdpError(#[from] std::io::Error),
+
+    /// Arc Mutex errors
+    #[error("Generic error: {0}")]
+    ArcMutexError(String),
 }
