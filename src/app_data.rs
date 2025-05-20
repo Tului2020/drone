@@ -9,16 +9,18 @@ use crate::logger::LogLevel;
 pub struct DroneAppData {
     /// App log level
     log_level: LogLevel,
-
     /// Port name for serial connection to the Flight Controller (FC)
     ///
     /// Default "/dev/ttyS0"
     fc_port_name: String,
-
     /// FC connection baud rate
     ///
     /// Default 420_000 baud rate
     fc_baud_rate: u32,
+    /// Control server port
+    control_server_port: u16,
+    /// UDP server address
+    udp_server_addr: String,
 }
 
 impl DroneAppData {
@@ -27,11 +29,19 @@ impl DroneAppData {
     /// # Returns
     ///
     /// A `DroneAppData` instance with default values.
-    pub fn new(log_level: LogLevel, fc_port_name: String, fc_baud_rate: u32) -> Self {
+    pub fn new(
+        log_level: LogLevel,
+        fc_port_name: String,
+        fc_baud_rate: u32,
+        control_server_port: u16,
+        udp_server_addr: String,
+    ) -> Self {
         Self {
             log_level,
             fc_port_name,
             fc_baud_rate,
+            control_server_port,
+            udp_server_addr,
         }
     }
 
@@ -50,6 +60,16 @@ impl DroneAppData {
         self.fc_baud_rate
     }
 
+    /// Returns the control server port.
+    pub fn control_server_port(&self) -> u16 {
+        self.control_server_port
+    }
+
+    /// Returns the UDP server address.
+    pub fn udp_server_addr(&self) -> &str {
+        &self.udp_server_addr
+    }
+
     /// Loads the configuration from a JSON file.
     pub fn load_from_file(file_path: &str) -> Self {
         let file = std::fs::File::open(file_path).expect("Unable to open config file");
@@ -61,9 +81,11 @@ impl DroneAppData {
 impl Default for DroneAppData {
     fn default() -> Self {
         Self {
-            log_level: LogLevel::INFO,
+            log_level: LogLevel::TRACE,
             fc_port_name: "/dev/ttyS0".to_string(),
             fc_baud_rate: 420_000,
+            control_server_port: 8080,
+            udp_server_addr: "0.0.0.0:8080".to_string(),
         }
     }
 }

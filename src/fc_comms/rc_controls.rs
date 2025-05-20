@@ -1,7 +1,10 @@
 //! RcControls struct
 use std::fmt::Display;
 
+use serde::{Deserialize, Serialize};
+
 /// Struct to hold the RC controls values
+#[derive(Deserialize, Serialize)]
 pub struct RcControls {
     /// Roll channel value
     pub roll: u16,
@@ -51,7 +54,7 @@ impl Display for RcControls {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[{}, {}, {}, {}, {}, {}, {}, {}]",
+            "roll={},pitch={},yaw={},thr={},aux1={},aux2={},aux3={},aux4={}",
             self.roll, self.pitch, self.yaw, self.thr, self.aux1, self.aux2, self.aux3, self.aux4
         )
     }

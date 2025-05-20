@@ -10,4 +10,8 @@ pub enum DroneError {
     /// Not found
     #[error("Serial Port: {0}")]
     SerialPort(String),
+
+    /// Server related errors
+    #[error("Server error: {0}")]
+    ServerError(String),
 }

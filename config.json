@@ -1,5 +1,7 @@
 {
-    "log_level": "INFO",
+    "log_level": "DEBUG",
     "fc_baud_rate": 420000,
-    "fc_port_name": "/ttyS0"
+    "fc_port_name": "/ttyS0",
+    "control_server_port": 8080,
+    "udp_server_addr": "0.0.0.0:8080"
 }

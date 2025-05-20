@@ -2,6 +2,8 @@
 #![warn(missing_docs)]
 pub mod app;
 pub mod app_data;
+#[cfg(feature = "control_server")]
+pub mod control_server;
 pub mod error;
 pub mod fc_comms;
 pub mod logger;
