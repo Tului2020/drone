@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::fc_comms::RcControls;
 
 /// Messages between UDP server and client
+#[derive(Debug)]
 pub enum Message {
     /// Set the RC controls
     SetRc(RcControls),
@@ -36,9 +37,7 @@ impl<'de> Deserialize<'de> for Message {
         }
         match parts[0] {
             "set_rc" => {
-                let rc_controls = serde_json::from_str(parts[1]).map_err(|_| {
-                    serde::de::Error::custom("Failed to parse RcControls from string")
-                })?;
+                let rc_controls = RcControls::from_str(parts[1]);
                 Ok(Message::SetRc(rc_controls))
             }
             _ => Err(serde::de::Error::custom("Unknown message type")),

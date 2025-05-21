@@ -1,10 +1,11 @@
 //! RcControls struct
 use std::fmt::Display;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use tracing::debug;
 
 /// Struct to hold the RC controls values
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct RcControls {
     /// Roll channel value
     pub roll: u16,
@@ -32,6 +33,48 @@ impl RcControls {
             self.roll, self.pitch, self.thr, self.yaw, self.aux1, self.aux2, self.aux3, self.aux4,
             0, 0, 0, 0, 0, 0, 0, 0,
         ]
+    }
+
+    /// Update the RcControls struct with another RcControls struct
+    pub fn update(&mut self, other: &RcControls) {
+        debug!("Updating RcControls");
+        self.roll = other.roll;
+        self.pitch = other.pitch;
+        self.yaw = other.yaw;
+        self.thr = other.thr;
+        self.aux1 = other.aux1;
+        self.aux2 = other.aux2;
+        self.aux3 = other.aux3;
+        self.aux4 = other.aux4;
+    }
+
+    /// Converts the RcControls struct to a byte array for CRSF communication
+    pub fn from_str(s: &str) -> RcControls {
+        let mut rc = RcControls::default();
+        for part in s.trim().split(',') {
+            let mut kv = part.split('=');
+            if let (Some(key), Some(value)) = (kv.next(), kv.next()) {
+                let value = value.trim();
+
+                match key {
+                    "roll" => rc.roll = value.parse().unwrap(),
+                    "pitch" => rc.pitch = value.parse().unwrap(),
+                    "yaw" => rc.yaw = value.parse().unwrap(),
+                    "thr" => rc.thr = value.parse().unwrap(),
+                    "aux1" => rc.aux1 = value.parse().unwrap(),
+                    "aux2" => rc.aux2 = value.parse().unwrap(),
+                    "aux3" => rc.aux3 = value.parse().unwrap(),
+                    "aux4" => rc.aux4 = value.parse().unwrap(),
+                    _ => {}
+                }
+            }
+        }
+        rc
+    }
+
+    /// Converts the RcControls struct to a string
+    pub fn to_str(&self) -> String {
+        format!("{self}")
     }
 }
 
