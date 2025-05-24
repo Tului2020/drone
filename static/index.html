@@ -4,104 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <title>RC Controller</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            padding: 2rem;
-            background-color: #f7f9fb;
-        }
-
-        h1 {
-            margin-bottom: 2rem;
-        }
-
-        .slider-container {
-            display: grid;
-            grid-template-columns: 100px 1fr 60px;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            background: #fff;
-            padding: 1rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-        }
-
-        .slider-container label {
-            font-weight: bold;
-        }
-
-        .value {
-            text-align: right;
-            font-family: monospace;
-        }
-    </style>
+    <link rel="stylesheet" href="index.css">
+    <script src="index.js"></script>
 </head>
 
 <body>
     <h1>RC Control Sliders</h1>
-
     <div id="sliders"></div>
-
-    <script>
-        const defaultValues = {
-            roll: 1500,
-            pitch: 1500,
-            yaw: 1500,
-            thr: 1000,
-            aux1: 1000,
-            aux2: 1000,
-            aux3: 1000,
-            aux4: 1000,
-        };
-
-        const slidersDiv = document.getElementById("sliders");
-        const data = {};
-
-        function sendData() {
-            fetch("/set-rc", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data),
-            });
-        }
-
-        Object.entries(defaultValues).forEach(([name, defaultValue]) => {
-            const container = document.createElement("div");
-            container.className = "slider-container";
-
-            const label = document.createElement("label");
-            label.setAttribute("for", name);
-            label.textContent = name.charAt(0).toUpperCase() + name.slice(1);
-
-            const input = document.createElement("input");
-            input.type = "range";
-            input.id = name;
-            input.min = 1000;
-            input.max = 2000;
-            input.value = defaultValue;
-
-            const valueDisplay = document.createElement("div");
-            valueDisplay.className = "value";
-            valueDisplay.textContent = defaultValue;
-
-            input.addEventListener("input", () => {
-                valueDisplay.textContent = input.value;
-                data[name] = parseInt(input.value);
-                sendData();
-            });
-
-            container.appendChild(label);
-            container.appendChild(input);
-            container.appendChild(valueDisplay);
-            slidersDiv.appendChild(container);
-
-            data[name] = defaultValue;
-        });
-
-        // Send once on load
-        window.addEventListener("load", sendData);
-    </script>
 </body>
 
 </html>
