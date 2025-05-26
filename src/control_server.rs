@@ -52,6 +52,7 @@ impl ControlServer {
                 .app_data(udp_client.clone())
         })
         .bind(addr)?
+        .workers(1)
         .run()
         .await?;
 

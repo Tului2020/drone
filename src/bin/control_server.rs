@@ -4,7 +4,7 @@ use tracing::error;
 #[cfg(feature = "control_server")]
 use tracing::info;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 1)]
 async fn main() {
     #[cfg(feature = "control_server")]
     {
