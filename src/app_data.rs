@@ -17,8 +17,8 @@ pub struct DroneAppData {
     ///
     /// Default 420_000 baud rate
     fc_baud_rate: u32,
-    /// Control server port
-    control_server_port: u16,
+    /// Control server address and port
+    control_server_address: String,
     /// UDP server address
     udp_server_addr: String,
 }
@@ -33,14 +33,14 @@ impl DroneAppData {
         log_level: LogLevel,
         fc_port_name: String,
         fc_baud_rate: u32,
-        control_server_port: u16,
+        control_server_address: String,
         udp_server_addr: String,
     ) -> Self {
         Self {
             log_level,
             fc_port_name,
             fc_baud_rate,
-            control_server_port,
+            control_server_address,
             udp_server_addr,
         }
     }
@@ -60,9 +60,9 @@ impl DroneAppData {
         self.fc_baud_rate
     }
 
-    /// Returns the control server port.
-    pub fn control_server_port(&self) -> u16 {
-        self.control_server_port
+    /// Returns the control server address and  port.
+    pub fn control_server_address(&self) -> &String {
+        &self.control_server_address
     }
 
     /// Returns the UDP server address.
@@ -84,7 +84,7 @@ impl Default for DroneAppData {
             log_level: LogLevel::TRACE,
             fc_port_name: "/dev/ttyS0".to_string(),
             fc_baud_rate: 420_000,
-            control_server_port: 8080,
+            control_server_address: "127.0.0.1:8080".to_string(),
             udp_server_addr: "0.0.0.0:8080".to_string(),
         }
     }

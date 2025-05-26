@@ -28,9 +28,7 @@ impl ControlServer {
     pub fn new(app_data: &DroneAppData) -> Self {
         ControlServer {
             udp_server_addr: app_data.udp_server_addr().to_string(),
-            addr: format!("127.0.0.1:{}", app_data.control_server_port())
-                .parse()
-                .unwrap(),
+            addr: app_data.control_server_address().parse().unwrap(),
         }
     }
 
