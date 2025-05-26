@@ -10,10 +10,10 @@ const defaultValues = {
 };
 
 const keyboardMaps = {
-    ArrowUp: { name: "pitch", type: 'incremental', increaseBy: 10 },
-    ArrowDown: { name: "pitch", type: 'incremental', increaseBy: -10 },
-    ArrowLeft: { name: "roll", type: 'incremental', increaseBy: -10 },
-    ArrowRight: { name: "roll", type: 'incremental', increaseBy: 10 },
+    arrowup: { name: "pitch", type: 'incremental', increaseBy: 10 },
+    arrowdown: { name: "pitch", type: 'incremental', increaseBy: -10 },
+    arrowleft: { name: "roll", type: 'incremental', increaseBy: -10 },
+    arrowright: { name: "roll", type: 'incremental', increaseBy: 10 },
     w: { name: "thr", type: 'incremental', increaseBy: 10 },
     s: { name: "thr", type: 'incremental', increaseBy: -10 },
     a: { name: "yaw", type: 'incremental', increaseBy: -10 },
@@ -26,13 +26,16 @@ const keyboardMaps = {
 
 const keyboardControls = () => {
     window.addEventListener("keydown", (event) => {
-        const keyboardMap = keyboardMaps[event.key];
+        const keyboardMap = keyboardMaps[event.key.toLowerCase()];
+        if (!keyboardMap) {
+            return;
+        }
 
         if (keyboardMap.type === 'incremental') {
             const { name, increaseBy } = keyboardMap;
             const input = document.getElementById(name);
             if (input) {
-                let newValue = parseInt(input.value) + increaseBy;
+                let newValue = parseInt(input.value) + increaseBy / (event.shiftKey ? (Math.abs(increaseBy)) : 1);
                 // Ensure the value stays within the range
                 newValue = Math.max(885, Math.min(2000, newValue));
                 input.value = newValue;
@@ -49,8 +52,6 @@ const keyboardControls = () => {
                 input.dispatchEvent(new Event('input')); // Trigger the input event
             }
 
-        } else {
-            console.warn("Unknown keyboard control type:", keyboardMap.type);
         }
     })
 }
