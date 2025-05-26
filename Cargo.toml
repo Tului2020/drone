@@ -28,4 +28,10 @@ path = "src/lib.rs"
 default = ["real", "control_server"]
 real = ["serialport"]
 udp_server = ["tokio"]
+
+# raspberry pi specific features
+raspi = ["udp_server", "real"]
+# development environment for raspi, does not contain serialport
+raspi-development = ["udp_server"]
+# control server features (for development)
 control_server = ["udp_server", "actix-web", "actix-files"]
