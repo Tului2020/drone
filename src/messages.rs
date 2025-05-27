@@ -1,5 +1,4 @@
 //! Messages between UDP server and client
-
 use serde::{Deserialize, Serialize};
 
 use crate::fc_comms::RcControls;
@@ -9,6 +8,9 @@ use crate::fc_comms::RcControls;
 pub enum Message {
     /// Set the RC controls
     SetRc(RcControls),
+    /// Heartbeat message
+    #[cfg(feature = "heartbeat")]
+    Heartbeat,
 }
 
 impl Serialize for Message {
@@ -21,6 +23,8 @@ impl Serialize for Message {
                 let rc_str = format!("set_rc;{rc_controls}");
                 serializer.serialize_str(&rc_str)
             }
+            #[cfg(feature = "heartbeat")]
+            Message::Heartbeat => serializer.serialize_str("heartbeat"),
         }
     }
 }
@@ -32,7 +36,8 @@ impl<'de> Deserialize<'de> for Message {
     {
         let s = String::deserialize(deserializer)?;
         let parts: Vec<&str> = s.split(';').collect();
-        if parts.len() != 2 {
+
+        if parts.len() > 2 {
             return Err(serde::de::Error::custom("Invalid message format"));
         }
         match parts[0] {
@@ -40,6 +45,8 @@ impl<'de> Deserialize<'de> for Message {
                 let rc_controls = RcControls::from_str(parts[1]);
                 Ok(Message::SetRc(rc_controls))
             }
+            #[cfg(feature = "heartbeat")]
+            "heartbeat" => Ok(Message::Heartbeat),
             _ => Err(serde::de::Error::custom("Unknown message type")),
         }
     }

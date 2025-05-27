@@ -8,6 +8,7 @@ default-run = "drone"
 actix-files = { version = "=0.6.6", optional = true }
 actix-web = { version = "=4.11.0", optional = true }
 ctrlc = "=3.4.7"
+futures = { version = "0.3.31", optional = true }
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.140"
 serialport = { version = "=4.7.2", default-features = false, optional = true }
@@ -17,6 +18,7 @@ tokio = { version = "=1.45.0", features = [
     "rt",
     "macros",
     "rt-multi-thread",
+    "time",
 ], optional = true }
 tracing = "=0.1.41"
 tracing-subscriber = "=0.3.19"
@@ -25,13 +27,16 @@ tracing-subscriber = "=0.3.19"
 path = "src/lib.rs"
 
 [features]
-default = ["real", "control_server"]
-real = ["serialport"]
-udp_server = ["tokio"]
+default = ["raspi"]
+real = ["serialport", "tokio"]
+udp_server = ["tokio", "futures"]
+heartbeat = ["tokio"]
 
 # raspberry pi specific features
 raspi = ["udp_server", "real"]
+# control server features (for development)
+control_server = ["actix-web", "actix-files", "tokio", "futures"]
 # development environment for raspi, does not contain serialport
 raspi-development = ["udp_server"]
-# control server features (for development)
-control_server = ["udp_server", "actix-web", "actix-files"]
+# development environment for control server, does not contain serialport
+control_server_development = ["control_server"]

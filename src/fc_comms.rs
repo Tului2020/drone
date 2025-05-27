@@ -46,12 +46,23 @@ impl FcComms {
         let rc_controls = Arc::new(Mutex::new(RcControls::default()));
 
         #[cfg(feature = "udp_server")]
+        // Create a UDP server that listens for RC data and sets the "rc_controls"
         {
+            #[cfg(feature = "heartbeat")]
+            let heatbeat_interval_ms = app_data.heartbeat_interval_ms();
             let (rc_controls_clone, running_clone) = (rc_controls.clone(), running.clone());
-            thread_spawn(move || UdpServer::new(rc_controls_clone, running_clone));
+            thread_spawn(move || {
+                UdpServer::new(
+                    rc_controls_clone,
+                    running_clone,
+                    #[cfg(feature = "heartbeat")]
+                    heatbeat_interval_ms,
+                )
+            });
         }
 
         #[cfg(feature = "real")]
+        // Create a serial port that connects to the FC and sends "rc_controls" every 20ms
         let port = {
             let port_name = app_data.fc_port_name();
             let baud_rate = app_data.fc_baud_rate();

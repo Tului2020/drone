@@ -1,23 +1,56 @@
 #[cfg(feature = "control_server")]
-use drone::{app_data::DroneAppData, control_server::ControlServer, logger::init_logger};
-use tracing::error;
-#[cfg(feature = "control_server")]
-use tracing::info;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 1)]
-async fn main() {
+#[cfg(feature = "control_server")]
+use drone::control_server::ControlServer;
+use drone::DroneResult;
+#[cfg(feature = "control_server")]
+use tokio::time::sleep;
+#[cfg(feature = "control_server")]
+use tracing::{debug, error, info};
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> DroneResult {
     #[cfg(feature = "control_server")]
     {
-        // Load configuration
-        let app_data = DroneAppData::load_from_file("./config.json");
+        let running = Arc::new(AtomicBool::new(true));
+        let running_clone = running.clone();
 
-        init_logger(&app_data.log_level().clone().into()).unwrap();
-        info!("Starting control server...");
-        if let Err(e) = ControlServer::new(&app_data).start().await {
-            error!("Error starting control server: {e}");
-        }
+        let control_server = ControlServer::new("./config.json")?;
+
+        ctrlc::set_handler(move || {
+            debug!("Ctrl+C detected!");
+            running_clone.store(false, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
+
+        let ctrlc_task = tokio::spawn(async move {
+            while running.load(Ordering::SeqCst) {
+                sleep(Duration::from_secs(1)).await;
+            }
+        });
+
+        let control_server_task = tokio::spawn(async move {
+            if let Err(e) = control_server.start().await {
+                error!("Error starting control server: {e}");
+            }
+        });
+
+        tokio::select! {
+            _ = ctrlc_task => {
+                info!("Ctrl-C handler task completed.");
+            }
+            _ = control_server_task => {
+                info!("Control server task completed.");
+            }
+        };
     }
 
-    #[cfg(not(feature = "control_server"))]
-    error!("Control server feature is not enabled. Please enable it in your Cargo.toml.");
+    Ok(())
 }

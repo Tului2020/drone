@@ -3,15 +3,16 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread::sleep,
     time::Duration,
 };
 
 use drone::{app::App, DroneResult};
 
-use tracing::{debug, info};
+use tokio::time::sleep;
+use tracing::debug;
 
-fn main() -> DroneResult {
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> DroneResult {
     let running = Arc::new(AtomicBool::new(true));
     let running_clone = running.clone();
 
@@ -24,10 +25,8 @@ fn main() -> DroneResult {
     .expect("Error setting Ctrl-C handler");
 
     while running.load(Ordering::SeqCst) {
-        sleep(Duration::from_secs(1));
+        sleep(Duration::from_secs(1)).await;
     }
-
-    info!("Exiting gracefully.");
 
     Ok(())
 }

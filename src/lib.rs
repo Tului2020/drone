@@ -7,10 +7,19 @@ pub mod control_server;
 pub mod error;
 pub mod fc_comms;
 pub mod logger;
-#[cfg(any(feature = "control_server", feature = "udp_server"))]
 pub mod messages;
 #[cfg(feature = "udp_server")]
 pub mod udp_server;
 
 /// A type alias for the result of a Conductor operation.
 pub type DroneResult<T = ()> = std::result::Result<T, error::DroneError>;
+
+#[cfg(feature = "heartbeat")]
+/// Gets time in milliseconds since the Unix epoch.
+pub fn get_time_ms() -> u128 {
+    use std::time::SystemTime;
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
+}
