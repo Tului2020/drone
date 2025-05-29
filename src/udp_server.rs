@@ -51,7 +51,7 @@ impl UdpServer {
                             rc_controls.reset();
                         }
 
-                        sleep(Duration::from_millis(heartbeat_interval_ms as u64 / 2)).await
+                        sleep(Duration::from_millis(heartbeat_interval_ms as u64)).await
                     }
                 });
 
