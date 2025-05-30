@@ -9,19 +9,21 @@ const defaultValues = {
     aux4: 1000,
 };
 
+const sliderAmount = 100;
+
 const keyboardMaps = {
-    arrowup: { name: "pitch", type: 'incremental', increaseBy: 10 },
-    arrowdown: { name: "pitch", type: 'incremental', increaseBy: -10 },
-    arrowleft: { name: "roll", type: 'incremental', increaseBy: -10 },
-    arrowright: { name: "roll", type: 'incremental', increaseBy: 10 },
-    w: { name: "thr", type: 'incremental', increaseBy: 10 },
-    s: { name: "thr", type: 'incremental', increaseBy: -10 },
-    a: { name: "yaw", type: 'incremental', increaseBy: -10 },
-    d: { name: "yaw", type: 'incremental', increaseBy: 10 },
-    1: { name: "aux1", type: 'switch', off: 1000, on: 1700 },
-    2: { name: "aux2", type: 'switch', off: 1000, on: 1700 },
-    3: { name: "aux3", type: 'switch', off: 1000, on: 1700 },
-    4: { name: "aux4", type: 'switch', off: 1000, on: 1700 },
+    arrowup: { name: "pitch", type: 'incremental', increaseBy: sliderAmount },
+    arrowdown: { name: "pitch", type: 'incremental', increaseBy: -sliderAmount },
+    arrowleft: { name: "roll", type: 'incremental', increaseBy: -sliderAmount },
+    arrowright: { name: "roll", type: 'incremental', increaseBy: sliderAmount },
+    w: { name: "thr", type: 'incremental', increaseBy: sliderAmount },
+    s: { name: "thr", type: 'incremental', increaseBy: -sliderAmount },
+    a: { name: "yaw", type: 'incremental', increaseBy: -sliderAmount },
+    d: { name: "yaw", type: 'incremental', increaseBy: sliderAmount },
+    1: { name: "aux1", type: 'modes', modes: [1000, 1700, 1950] },
+    2: { name: "aux2", type: 'modes', modes: [1000, 1400, 1900] },
+    3: { name: "aux3", type: 'modes', modes: [1000, 1700] },
+    4: { name: "aux4", type: 'modes', modes: [1000, 1700] },
 }
 
 const keyboardControls = () => {
@@ -42,11 +44,24 @@ const keyboardControls = () => {
                 input.dispatchEvent(new Event('input')); // Trigger the input event
             }
 
-        } else if (keyboardMap.type === 'switch') {
-            const { name, off, on } = keyboardMap;
+        } else if (keyboardMap.type === 'modes') {
+            const { name, modes } = keyboardMap;
             const input = document.getElementById(name);
 
             if (input) {
+                const currentValue = parseInt(input.value);
+                const currentIndex = modes.indexOf(currentValue);
+
+                if (currentIndex === -1) {
+                    input.value = modes[0];
+                } else {
+                    // If the current value is in the modes array, toggle to the next mode
+                    const nextIndex = (currentIndex + 1) % modes.length;
+                    input.value = modes[nextIndex];
+                }
+
+                console.log(`Current value for ${name}: ${currentValue} {type of currentValue : ${typeof currentValue} ${currentIndex}}`);
+                // look for the current value in the modes array
                 // Toggle between off and on values
                 input.value = (input.value == off) ? on : off;
                 input.dispatchEvent(new Event('input')); // Trigger the input event
