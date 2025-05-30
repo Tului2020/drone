@@ -22,7 +22,6 @@ pub struct DroneAppData {
     /// UDP server address
     udp_server_addr: String,
     /// Heartbeat interval in milliseconds
-    #[cfg(feature = "heartbeat")]
     heartbeat_interval_ms: u128,
 }
 
@@ -38,7 +37,7 @@ impl DroneAppData {
         fc_baud_rate: u32,
         control_server_address: String,
         udp_server_addr: String,
-        #[cfg(feature = "heartbeat")] heartbeat_interval_ms: u128,
+        heartbeat_interval_ms: u128,
     ) -> Self {
         Self {
             log_level,
@@ -46,7 +45,6 @@ impl DroneAppData {
             fc_baud_rate,
             control_server_address,
             udp_server_addr,
-            #[cfg(feature = "heartbeat")]
             heartbeat_interval_ms,
         }
     }
@@ -77,7 +75,6 @@ impl DroneAppData {
     }
 
     /// Returns the heartbeat interval in milliseconds.
-    #[cfg(feature = "heartbeat")]
     pub fn heartbeat_interval_ms(&self) -> u128 {
         self.heartbeat_interval_ms
     }
@@ -98,8 +95,7 @@ impl Default for DroneAppData {
             fc_baud_rate: 420_000,
             control_server_address: "127.0.0.1:8080".to_string(),
             udp_server_addr: "0.0.0.0:8080".to_string(),
-            #[cfg(feature = "heartbeat")]
-            heartbeat_interval_ms: 100,
+            heartbeat_interval_ms: 1000,
         }
     }
 }

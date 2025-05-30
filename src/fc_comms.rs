@@ -48,16 +48,10 @@ impl FcComms {
         #[cfg(feature = "udp_server")]
         // Create a UDP server that listens for RC data and sets the "rc_controls"
         {
-            #[cfg(feature = "heartbeat")]
             let heatbeat_interval_ms = app_data.heartbeat_interval_ms();
             let (rc_controls_clone, running_clone) = (rc_controls.clone(), running.clone());
             thread_spawn(move || {
-                UdpServer::new(
-                    rc_controls_clone,
-                    running_clone,
-                    #[cfg(feature = "heartbeat")]
-                    heatbeat_interval_ms,
-                )
+                UdpServer::new(rc_controls_clone, running_clone, heatbeat_interval_ms)
             });
         }
 

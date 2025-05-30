@@ -9,7 +9,6 @@ pub enum Message {
     /// Set the RC controls
     SetRc(RcControls),
     /// Heartbeat message
-    #[cfg(feature = "heartbeat")]
     Heartbeat,
 }
 
@@ -23,7 +22,6 @@ impl Serialize for Message {
                 let rc_str = format!("set_rc;{rc_controls}");
                 serializer.serialize_str(&rc_str)
             }
-            #[cfg(feature = "heartbeat")]
             Message::Heartbeat => serializer.serialize_str("heartbeat"),
         }
     }
@@ -45,7 +43,6 @@ impl<'de> Deserialize<'de> for Message {
                 let rc_controls = RcControls::from_str(parts[1]);
                 Ok(Message::SetRc(rc_controls))
             }
-            #[cfg(feature = "heartbeat")]
             "heartbeat" => Ok(Message::Heartbeat),
             _ => Err(serde::de::Error::custom("Unknown message type")),
         }

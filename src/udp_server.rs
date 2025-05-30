@@ -9,9 +9,8 @@ use std::{
 
 use futures::future::join_all;
 use tokio::{net::UdpSocket, runtime::Builder, time::sleep};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
-#[cfg(feature = "heartbeat")]
 use crate::get_time_ms;
 use crate::{fc_comms::RcControls, messages::Message};
 
@@ -23,7 +22,7 @@ impl UdpServer {
     pub fn new(
         rc_controls: Arc<Mutex<RcControls>>,
         running: Arc<AtomicBool>,
-        #[cfg(feature = "heartbeat")] heartbeat_interval_ms: u128,
+        heartbeat_interval_ms: u128,
     ) -> Self {
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
@@ -35,7 +34,6 @@ impl UdpServer {
             let mut tasks = vec![];
 
             // Checks heartbeat every heartbeat_interval_ms milliseconds and resets the RC controls if no heartbeat is received
-            #[cfg(feature = "heartbeat")]
             let last_heartbeat_timestamp = {
                 let last_heartbeat_timestamp = Arc::new(Mutex::new(get_time_ms()));
                 let last_heartbeat_timestamp_clone = last_heartbeat_timestamp.clone();
@@ -66,22 +64,34 @@ impl UdpServer {
                 let mut buf = [0u8; 1024];
                 loop {
                     let (len, _) = socket.recv_from(&mut buf).await.unwrap();
-                    let s = std::str::from_utf8(&buf[..len]).unwrap();
-                    match serde_json::from_str::<Message>(s).unwrap() {
-                        Message::SetRc(incoming_rc_controls) => {
-                            rc_controls_clone
-                                .lock()
-                                .unwrap()
-                                .update(&incoming_rc_controls);
+                    let raw_string = std::str::from_utf8(&buf[..len]).unwrap();
+
+                    if let Ok(decoded_message) = serde_json::from_str::<Message>(raw_string) {
+                        // Decode the message and process it
+                        match decoded_message {
+                            Message::SetRc(incoming_rc_controls) => {
+                                rc_controls_clone
+                                    .lock()
+                                    .unwrap()
+                                    .update(&incoming_rc_controls);
+                            }
+                            Message::Heartbeat => {
+                                debug!("Received heartbeat");
+                                let mut temp_last_heartbeat_timestamp =
+                                    last_heartbeat_timestamp.lock().unwrap();
+                                *temp_last_heartbeat_timestamp = get_time_ms();
+                            }
                         }
-                        #[cfg(feature = "heartbeat")]
-                        Message::Heartbeat => {
-                            debug!("Received heartbeat");
-                            let mut temp_last_heartbeat_timestamp =
-                                last_heartbeat_timestamp.lock().unwrap();
-                            *temp_last_heartbeat_timestamp = get_time_ms();
+
+                        // Send an ACK response
+                        match socket.send(b"ACK").await {
+                            Ok(_) => debug!("ACK sent"),
+                            Err(e) => warn!("Failed to send ACK: {e}"),
                         }
-                    }
+                    } else {
+                        warn!("Received invalid message: {raw_string}");
+                        continue;
+                    };
                 }
             });
             tasks.push(listener_task);

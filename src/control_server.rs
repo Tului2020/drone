@@ -18,7 +18,6 @@ pub struct ControlServer {
     /// Address of the control server.
     addr: String,
     /// Heartbeat interval in milliseconds (optional, only if feature is enabled).
-    #[cfg(feature = "heartbeat")]
     heartbeat_interval_ms: u64,
 }
 
@@ -43,7 +42,6 @@ impl ControlServer {
         Ok(ControlServer {
             udp_server_addr: app_data.udp_server_addr().to_string(),
             addr: app_data.control_server_address().to_string(),
-            #[cfg(feature = "heartbeat")]
             heartbeat_interval_ms: app_data.heartbeat_interval_ms() as u64,
         })
     }
@@ -58,7 +56,6 @@ impl ControlServer {
 
         let mut tasks = vec![];
 
-        #[cfg(feature = "heartbeat")]
         // Sends a heartbeat message at regular intervals to the UDP server.
         {
             let heartbeat_interval_ms = self.heartbeat_interval_ms;
@@ -166,7 +163,6 @@ impl UdpClient {
     }
 
     /// Sends a heartbeat message to the UDP server.
-    #[cfg(feature = "heartbeat")]
     pub async fn send_heartbeat(&self) -> DroneResult<()> {
         let msg = serde_json::to_string(&Message::Heartbeat)?;
 
