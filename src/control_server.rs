@@ -121,7 +121,8 @@ impl ControlServer {
     }
 }
 
-struct UdpClient {
+/// UDP client for sending messages to the UDP server.
+pub struct UdpClient {
     socket: UdpSocket,
     server_addr: String,
 }

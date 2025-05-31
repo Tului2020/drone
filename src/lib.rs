@@ -2,7 +2,7 @@
 #![warn(missing_docs)]
 pub mod app;
 pub mod app_data;
-#[cfg(feature = "control_server")]
+#[cfg(any(feature = "control_server", feature = "dualsense"))]
 pub mod control_server;
 #[cfg(feature = "dualsense")]
 pub mod dualsense_controller;

@@ -47,3 +47,8 @@ control_server_development = ["control_server"]
 name = "control_server"
 path = "src/bin/control_server.rs"
 required-features = ["control_server"]
+
+[[bin]]
+name = "dualsense"
+path = "src/bin/dualsense.rs"
+required-features = ["dualsense"]
