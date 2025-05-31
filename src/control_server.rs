@@ -57,24 +57,21 @@ impl ControlServer {
         let mut tasks = vec![];
 
         // Sends a heartbeat message at regular intervals to the UDP server.
-        {
-            let heartbeat_interval_ms = self.heartbeat_interval_ms;
-            let udp_client_clone = udp_client.clone();
-            // Spawn the loop before server starts
-            let heartbeat_task = tokio::spawn(async move {
-                loop {
-                    // Send message (handle error as needed)
-                    if let Err(e) = udp_client_clone.send_heartbeat().await {
-                        error!("UDP send failed: {e:?}");
-                    }
-
-                    tokio::time::sleep(std::time::Duration::from_millis(heartbeat_interval_ms))
-                        .await;
+        let heartbeat_interval_ms = self.heartbeat_interval_ms;
+        let udp_client_clone = udp_client.clone();
+        // Spawn the loop before server starts
+        let heartbeat_task = tokio::spawn(async move {
+            loop {
+                // Send message (handle error as needed)
+                if let Err(e) = udp_client_clone.send_heartbeat().await {
+                    error!("UDP send failed: {e:?}");
                 }
-            });
 
-            tasks.push(heartbeat_task);
-        };
+                tokio::time::sleep(std::time::Duration::from_millis(heartbeat_interval_ms)).await;
+            }
+        });
+
+        tasks.push(heartbeat_task);
 
         // Spins up a web server that listens for incoming HTTP requests and serves static files.
         let server_task = {
