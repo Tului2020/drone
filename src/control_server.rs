@@ -74,6 +74,7 @@ impl ControlServer {
         tasks.push(heartbeat_task);
 
         // Spins up a web server that listens for incoming HTTP requests and serves static files.
+        let udp_client_clone = udp_client.clone();
         let server_task = {
             let addr = self.addr.clone();
             tokio::spawn(async move {
@@ -81,7 +82,7 @@ impl ControlServer {
                     App::new()
                         .route("/set-rc", web::post().to(Self::set_rc))
                         .service(fs::Files::new("/", "./static").index_file("index.html"))
-                        .app_data(udp_client.clone())
+                        .app_data(udp_client_clone.clone())
                 })
                 .bind(&addr)
                 .unwrap()
@@ -91,6 +92,17 @@ impl ControlServer {
             })
         };
         tasks.push(server_task);
+
+        #[cfg(feature = "dualsense")]
+        {
+            // Spins up a DualSense controller task that reads input from the controller.
+            let udp_client = udp_client.clone();
+            let dual_sense_controller_task = tokio::spawn(async move {
+                crate::dualsense_controller::DualSenseController::new(udp_client);
+                Ok(())
+            });
+            tasks.push(dual_sense_controller_task);
+        }
 
         let _s = join_all(tasks).await;
 
