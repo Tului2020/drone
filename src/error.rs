@@ -23,4 +23,9 @@ pub enum DroneError {
     /// Arc Mutex errors
     #[error("Generic error: {0}")]
     ArcMutexError(String),
+
+    #[cfg(feature = "dualsense")]
+    /// DualSense controller errors
+    #[error(transparent)]
+    DualSenseError(#[from] hidapi::HidError),
 }
