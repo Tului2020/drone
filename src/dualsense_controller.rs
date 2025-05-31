@@ -5,21 +5,24 @@ use std::{
     time::Duration,
 };
 
+use actix_web::web;
 use hidapi::HidApi;
 use tokio::time::sleep;
 use tracing::{error, info};
 
-use crate::DroneResult;
+use crate::{control_server::UdpClient, fc_comms::RcControls, DroneResult};
+
+const SMOOTH_THRESHOLD: i8 = 10; // threshold for smoother function
 
 /// Represents a DualSense controller with its fields and methods.
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct DualSenseController {
     // rust list out PS5 controller fields
-    lx: i16,
-    ly: i16,
-    rx: i16,
-    ry: i16,
+    lx: i8,
+    ly: i8,
+    rx: i8,
+    ry: i8,
     l2_val: u8, // analog 0-255
     r2_val: u8, // analog 0-255
     up: bool,
@@ -50,7 +53,7 @@ impl DualSenseController {
     /// # Returns
     ///
     /// A new `DualSenseController` instance with all fields initialized to their default values.
-    pub fn new() -> Arc<Mutex<Self>> {
+    pub fn new(udp_client: web::Data<UdpClient>) -> Arc<Mutex<Self>> {
         let dual_sense_controller = Arc::new(Mutex::new(DualSenseController::default()));
         let dual_sense_controller_clone = dual_sense_controller.clone();
 
@@ -61,7 +64,9 @@ impl DualSenseController {
                 .expect("Failed to create Tokio runtime");
 
             tokio_runtime.block_on(async {
-                if let Err(e) = DualSenseController::connect(dual_sense_controller_clone).await {
+                if let Err(e) =
+                    DualSenseController::connect(dual_sense_controller_clone, udp_client).await
+                {
                     error!("Error connecting to DualSense controller: {e}");
                 } else {
                     info!("DualSense controller connected successfully.");
@@ -73,10 +78,14 @@ impl DualSenseController {
     }
 
     /// Connects to the DualSense controller and starts reading input.
-    pub async fn connect(controls: Arc<Mutex<DualSenseController>>) -> DroneResult<()> {
+    pub async fn connect(
+        controls: Arc<Mutex<DualSenseController>>,
+        udp_client: web::Data<UdpClient>,
+    ) -> DroneResult<()> {
         let api = HidApi::new()?;
         let pad = api.open(0x054c, 0x0ce6)?; // Sony DualSense (USB)
         let mut buf = [0u8; 64];
+        let mut last_rc_controls = RcControls::default();
 
         loop {
             let n = pad.read_timeout(&mut buf, 1000)?;
@@ -85,10 +94,10 @@ impl DualSenseController {
             } // empty / other reports
 
             /* ---------------- sticks ---------------- */
-            let lx = buf[1] as i16 - 128;
-            let ly = buf[2] as i16 - 128;
-            let rx = buf[3] as i16 - 128;
-            let ry = buf[4] as i16 - 128;
+            let lx = (buf[1] as i16 - 128) as i8;
+            let ly = (buf[2] as i16 - 128) as i8;
+            let rx = (buf[3] as i16 - 128) as i8;
+            let ry = (buf[4] as i16 - 128) as i8;
 
             /* ---------------- triggers -------------- */
             let l2_val = buf[5]; // analog 0-255
@@ -132,6 +141,15 @@ impl DualSenseController {
                 r2, create, options, l3, r3, ps, touch_btn, mic_mute,
             );
 
+            let mut dual_sense_controller = controls.lock().unwrap();
+            let dual_sense_controller = dual_sense_controller.sample(); // get a snapshot of the current state
+
+            last_rc_controls = dual_sense_controller.to_rc_controls(&last_rc_controls);
+
+            if let Err(e) = udp_client.send_rc(last_rc_controls).await {
+                error!("Failed to send RC controls: {e}");
+            }
+
             sleep(Duration::from_millis(10)).await; // avoid busy loop
         }
     }
@@ -139,10 +157,10 @@ impl DualSenseController {
     /// Updates the controller state with new values.
     pub fn update(
         &mut self,
-        lx: i16,
-        ly: i16,
-        rx: i16,
-        ry: i16,
+        lx: i8,
+        ly: i8,
+        rx: i8,
+        ry: i8,
         l2_val: u8,
         r2_val: u8,
         up: bool,
@@ -223,6 +241,59 @@ impl DualSenseController {
     pub fn sample(&mut self) -> Self {
         self.has_changed = false; // reset the change flag
         self.clone()
+    }
+
+    /// Converts the controller state to `RcControls` for communication with the flight controller.
+    pub fn to_rc_controls(&self, current_controls: &RcControls) -> RcControls {
+        // Ratio to convert DualSense values to RC controls
+        let dualsense_to_rc = 500. / 128.;
+
+        let roll: u16 = (1500i16 + (Self::smoother(self.rx) * dualsense_to_rc) as i16) as u16;
+        let pitch: u16 = (1500i16 + (-Self::smoother(self.ry) * dualsense_to_rc) as i16) as u16;
+        let yaw = (1500i16 + (Self::smoother(self.lx) * dualsense_to_rc) as i16) as u16;
+        let thr = (1000i16 + (-Self::smoother(self.ly) * 2. * dualsense_to_rc) as i16) as u16;
+
+        let aux1 = if self.l1 {
+            match current_controls.aux1 {
+                1000 => 1700, // toggle to mode 2
+                1700 => 1900, // toggle to mode 3
+                _ => 1000,    // toggle to mode 1
+            }
+        } else {
+            current_controls.aux1
+        };
+
+        let aux2 = if self.r1 {
+            match current_controls.aux2 {
+                1000 => 1700, // toggle to mode 2
+                1700 => 1900, // toggle to mode 3
+                _ => 1000,    // toggle to mode 1
+            }
+        } else {
+            current_controls.aux2
+        };
+
+        RcControls {
+            roll,
+            pitch,
+            yaw,
+            thr,
+            aux1,
+            aux2,
+            aux3: 1000,
+            aux4: 1000,
+            is_default: Some(false),
+        }
+    }
+
+    /// Smooths the input values to avoid sudden jumps in the controller's response.
+    fn smoother(x: i8) -> f32 {
+        // NOTE: need to check as i16 to avoid overflow
+        if (x as i16).abs() < SMOOTH_THRESHOLD as i16 {
+            return 0.; // If the value is below the threshold, return 0
+        }
+
+        (x as f32).powi(3) / 128.0_f32.powi(2)
     }
 }
 

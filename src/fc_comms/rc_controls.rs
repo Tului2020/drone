@@ -5,7 +5,7 @@ use serde::Deserialize;
 use tracing::debug;
 
 /// Struct to hold the RC controls values
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Copy)]
 pub struct RcControls {
     /// Roll channel value
     pub roll: u16,
