@@ -31,7 +31,7 @@ path = "src/lib.rs"
 default = ["raspi", "dualsense"]
 real = ["serialport"]
 udp_server = ["futures"]
-dualsense = ["hidapi"]
+dualsense = ["hidapi", "actix-web", "actix-files", "futures"]
 
 # raspberry pi specific features
 raspi = ["udp_server", "real"]
