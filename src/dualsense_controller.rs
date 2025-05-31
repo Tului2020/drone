@@ -1,5 +1,6 @@
 //! DualSense controller module
 use std::{
+    collections::HashMap,
     fmt::Display,
     sync::{Arc, Mutex},
     time::Duration,
@@ -10,9 +11,12 @@ use hidapi::HidApi;
 use tokio::time::sleep;
 use tracing::{error, info};
 
-use crate::{control_server::UdpClient, fc_comms::RcControls, DroneResult};
+use crate::{control_server::UdpClient, fc_comms::RcControls, get_time_ms, DroneResult};
 
-const SMOOTH_THRESHOLD: i8 = 10; // threshold for smoother function
+/// Threshold for smoother function to avoid sudden jumps in the controller's response
+const SMOOTH_THRESHOLD: i8 = 10;
+/// Threshold for button press time to determine if a button is pressed or not
+const BUTTON_PRESS_TIME_THRESHOLD_MS: u128 = 100;
 
 /// Represents a DualSense controller with its fields and methods.
 #[allow(dead_code)]
@@ -44,7 +48,6 @@ pub struct DualSenseController {
     ps: bool,
     touch_btn: bool,
     mic_mute: bool,
-    has_changed: bool,
 }
 
 impl DualSenseController {
@@ -86,12 +89,16 @@ impl DualSenseController {
         let pad = api.open(0x054c, 0x0ce6)?; // Sony DualSense (USB)
         let mut buf = [0u8; 64];
         let mut last_rc_controls = RcControls::default();
+        // Keep track of the time when each button was last pressed
+        let mut button_last_pressed = HashMap::new();
 
         loop {
             let n = pad.read_timeout(&mut buf, 1000)?;
             if n == 0 || buf[0] != 0x01 {
                 continue;
             } // empty / other reports
+
+            let now_ms = get_time_ms();
 
             /* ---------------- sticks ---------------- */
             let lx = (buf[1] as i16 - 128) as i8;
@@ -144,7 +151,11 @@ impl DualSenseController {
             let mut dual_sense_controller = controls.lock().unwrap();
             let dual_sense_controller = dual_sense_controller.sample(); // get a snapshot of the current state
 
-            last_rc_controls = dual_sense_controller.to_rc_controls(&last_rc_controls);
+            last_rc_controls = dual_sense_controller.to_rc_controls(
+                &last_rc_controls,
+                &mut button_last_pressed,
+                now_ms,
+            );
 
             if let Err(e) = udp_client.send_rc(last_rc_controls).await {
                 error!("Failed to send RC controls: {e}");
@@ -183,33 +194,6 @@ impl DualSenseController {
         touch_btn: bool,
         mic_mute: bool,
     ) {
-        // Set has_changed to true if any field has changed
-        self.has_changed = self.lx != lx
-            || self.ly != ly
-            || self.rx != rx
-            || self.ry != ry
-            || self.l2_val != l2_val
-            || self.r2_val != r2_val
-            || self.up != up
-            || self.right != right
-            || self.down != down
-            || self.left != left
-            || self.square != square
-            || self.cross != cross
-            || self.circle != circle
-            || self.triangle != triangle
-            || self.l1 != l1
-            || self.r1 != r1
-            || self.l2 != l2 // digital click
-            || self.r2 != r2
-            || self.create != create
-            || self.options != options
-            || self.l3 != l3
-            || self.r3 != r3
-            || self.ps != ps
-            || self.touch_btn != touch_btn
-            || self.mic_mute != mic_mute;
-
         self.lx = lx;
         self.ly = ly;
         self.rx = rx;
@@ -239,12 +223,16 @@ impl DualSenseController {
 
     /// Returns the current state of the controller
     pub fn sample(&mut self) -> Self {
-        self.has_changed = false; // reset the change flag
         self.clone()
     }
 
     /// Converts the controller state to `RcControls` for communication with the flight controller.
-    pub fn to_rc_controls(&self, current_controls: &RcControls) -> RcControls {
+    pub fn to_rc_controls(
+        &self,
+        previous_controls: &RcControls,
+        button_last_pressed: &mut HashMap<String, u128>,
+        now_ms: u128,
+    ) -> RcControls {
         // Ratio to convert DualSense values to RC controls
         let dualsense_to_rc = 500. / 128.;
 
@@ -254,23 +242,37 @@ impl DualSenseController {
         let thr = (1000i16 + (-Self::smoother(self.ly) * 2. * dualsense_to_rc) as i16) as u16;
 
         let aux1 = if self.l1 {
-            match current_controls.aux1 {
-                1000 => 1700, // toggle to mode 2
-                1700 => 1900, // toggle to mode 3
-                _ => 1000,    // toggle to mode 1
+            // Check if new press of L1 button
+            let is_new_press = Self::is_new_press(button_last_pressed, "l1", now_ms);
+
+            if is_new_press {
+                match previous_controls.aux1 {
+                    1000 => 1700, // pre-arm
+                    1700 => 1900, // arm
+                    _ => 1000,    // disable arm
+                }
+            } else {
+                previous_controls.aux1
             }
         } else {
-            current_controls.aux1
+            previous_controls.aux1
         };
 
         let aux2 = if self.r1 {
-            match current_controls.aux2 {
-                1000 => 1700, // toggle to mode 2
-                1700 => 1900, // toggle to mode 3
-                _ => 1000,    // toggle to mode 1
+            // Check if new press of R1 button
+            let is_new_press = Self::is_new_press(button_last_pressed, "r1", now_ms);
+
+            if is_new_press {
+                match previous_controls.aux2 {
+                    1000 => 1400, // angle mode
+                    1400 => 1900, // horizon mode
+                    _ => 1000,    // acro mode
+                }
+            } else {
+                previous_controls.aux2
             }
         } else {
-            current_controls.aux2
+            previous_controls.aux2
         };
 
         RcControls {
@@ -284,6 +286,25 @@ impl DualSenseController {
             aux4: 1000,
             is_default: Some(false),
         }
+    }
+
+    fn is_new_press(
+        button_last_pressed: &mut HashMap<String, u128>,
+        button_name: &str,
+        now_ms: u128,
+    ) -> bool {
+        let mut new_press_bool = false;
+        if let Some(last_time_pressed) = button_last_pressed.get(button_name) {
+            if now_ms - *last_time_pressed > BUTTON_PRESS_TIME_THRESHOLD_MS {
+                new_press_bool = true; // New press detected
+            }
+        } else {
+            new_press_bool = true; // First press detected
+        }
+
+        // Update the last pressed time
+        button_last_pressed.insert(button_name.to_string(), now_ms);
+        new_press_bool
     }
 
     /// Smooths the input values to avoid sudden jumps in the controller's response.
@@ -325,7 +346,6 @@ impl Default for DualSenseController {
             ps: false,
             touch_btn: false,
             mic_mute: false,
-            has_changed: false,
         }
     }
 }
