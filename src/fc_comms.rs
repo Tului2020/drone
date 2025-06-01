@@ -10,12 +10,10 @@ use std::{sync::atomic::Ordering, thread::sleep, time::Duration};
 pub use rc_controls::RcControls;
 #[cfg(feature = "real")]
 use serialport::SerialPort;
-use tracing::debug;
 #[cfg(feature = "real")]
 use tracing::error;
+use tracing::{debug, info};
 
-#[cfg(feature = "real")]
-use crate::error::DroneError;
 #[cfg(feature = "udp_server")]
 use crate::udp_server::UdpServer;
 use crate::{app_data::DroneAppData, DroneResult};
@@ -31,9 +29,6 @@ const PAYLOAD_LEN_RC: u8 = 22;
 
 /// FC communications
 pub struct FcComms {
-    /// Serial port
-    #[cfg(feature = "real")]
-    port: Arc<Mutex<Box<dyn SerialPort + 'static>>>,
     /// RC controls
     rc_controls: Arc<Mutex<RcControls>>,
 }
@@ -57,48 +52,78 @@ impl FcComms {
 
         #[cfg(feature = "real")]
         // Create a serial port that connects to the FC and sends "rc_controls" every 20ms
-        let port = {
-            let port_name = app_data.fc_port_name();
+        {
+            // Thread that sends RC data to the FC every 20ms to prevent the FC from going into failsafe mode
+            let rc_controls_clone = rc_controls.clone();
+            let port_name = app_data.fc_port_name().to_string();
             let baud_rate = app_data.fc_baud_rate();
 
-            let port = Arc::new(Mutex::new(
-                serialport::new(port_name, baud_rate)
-                    .timeout(Duration::from_millis(1000))
-                    .open()?,
-            ));
-            debug!("Serial port opened: {port_name} at {baud_rate} baud");
+            thread_spawn(move || {
+                let mut port = match Self::open_port(&port_name, baud_rate) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("Initial open failed: {e}");
+                        return;
+                    }
+                };
 
-            let (rc_controls_clone, port_clone) = (rc_controls.clone(), port.clone());
-            thread_spawn(move || loop {
-                {
+                loop {
+                    // ---------- build RC frame ----------
                     let chans_us = { rc_controls_clone.lock().unwrap().chans_us() };
-                    let chans: Vec<u16> = chans_us.iter().map(|&x| us_to_crsf(x)).collect();
+                    let chans: Vec<u16> = chans_us.iter().copied().map(us_to_crsf).collect();
                     let payload = pack_rc(&chans);
                     let frame = build_frame(TYPE_RC, &payload);
 
-                    let _s = port_clone
-                        .lock()
-                        .unwrap()
-                        .write_all(&frame)
-                        .map_err(|e| error!("{e}"));
-                }
+                    // ---------- try to write ----------
+                    match port.write_all(&frame) {
+                        Ok(_) => {
+                            // normal path
+                            if !running.load(Ordering::SeqCst) {
+                                debug!("Stopping RC data thread");
+                                break;
+                            }
+                            sleep(Duration::from_millis(20));
+                        }
 
-                if !running.load(Ordering::SeqCst) {
-                    debug!("Stopping RC data thread");
-                    return;
-                }
+                        Err(e) => {
+                            error!("Serial write failed ({e}). Dropping handle …");
+                            drop(port); // closes the FD immediately
 
-                sleep(Duration::from_millis(20));
+                            // ---------- reconnect loop ----------
+                            loop {
+                                if !running.load(Ordering::SeqCst) {
+                                    debug!("Stopping RC data thread while reconnecting");
+                                    return;
+                                }
+
+                                match Self::open_port(&port_name, baud_rate) {
+                                    Ok(p) => {
+                                        info!("Re-connected to {port_name}");
+                                        port = p;
+                                        break; // resume main loop
+                                    }
+                                    Err(err) => {
+                                        info!("Reconnect attempt failed: {err}");
+                                        sleep(Duration::from_millis(2000));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             });
-
-            port
         };
 
-        Ok(Self {
-            #[cfg(feature = "real")]
-            port,
-            rc_controls,
-        })
+        Ok(Self { rc_controls })
+    }
+
+    #[cfg(feature = "real")]
+    fn open_port(port_name: &str, baud_rate: u32) -> DroneResult<Box<dyn SerialPort>> {
+        let port = serialport::new(port_name, baud_rate)
+            .timeout(Duration::from_millis(1000))
+            .open()?;
+        info!("Serial port opened: {port_name} at {baud_rate} baud");
+        Ok(port)
     }
 
     /// Send RC data
@@ -139,30 +164,6 @@ impl FcComms {
         if let Some(aux4) = aux4 {
             rc_controls.aux4 = aux4;
         }
-    }
-
-    /// Listen to the serial port
-    pub fn listen(&mut self) -> DroneResult<()> {
-        #[cfg(feature = "real")]
-        {
-            let mut buffer = [0u8; 1024];
-            loop {
-                match self.port.lock().unwrap().read(&mut buffer) {
-                    Ok(n) => {
-                        if n > 0 {
-                            debug!("Received: {:?}", &buffer[..n]);
-                            // Process the received data
-                        }
-                    }
-                    Err(e) => {
-                        return Err(DroneError::ArcMutexError(e.to_string()));
-                    }
-                }
-            }
-        }
-
-        #[cfg(not(feature = "real"))]
-        Ok(())
     }
 }
 
