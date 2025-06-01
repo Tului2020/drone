@@ -61,13 +61,20 @@ impl ControlServer {
         let udp_client_clone = udp_client.clone();
         // Spawn the loop before server starts
         let heartbeat_task = tokio::spawn(async move {
+            let mut backoff_multiplier = 1;
             loop {
                 // Send message (handle error as needed)
                 if let Err(e) = udp_client_clone.send_heartbeat().await {
                     error!("UDP send failed: {e:?}");
+                    backoff_multiplier = (backoff_multiplier * 2).min(8)
+                } else {
+                    backoff_multiplier = 1; // Reset exponential backoff on success
                 }
 
-                tokio::time::sleep(std::time::Duration::from_millis(heartbeat_interval_ms)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    heartbeat_interval_ms * backoff_multiplier,
+                ))
+                .await;
             }
         });
 

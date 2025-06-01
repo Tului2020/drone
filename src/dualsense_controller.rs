@@ -91,6 +91,8 @@ impl DualSenseController {
         let mut last_rc_controls = RcControls::default();
         // Keep track of the time when each button was last pressed
         let mut button_last_pressed = HashMap::new();
+        // Exponential backoff for sending RC controls
+        let mut backoff_multiplier = 1;
 
         loop {
             let n = pad.read_timeout(&mut buf, 1000)?;
@@ -159,9 +161,14 @@ impl DualSenseController {
 
             if let Err(e) = udp_client.send_rc(last_rc_controls).await {
                 error!("Failed to send RC controls: {e}");
+                // Implement exponential backoff
+                backoff_multiplier = (backoff_multiplier * 2).min(8); // Cap backoff to a maximum value
+            } else {
+                // Reset backoff if sending was successful
+                backoff_multiplier = 1;
             }
 
-            sleep(Duration::from_millis(10)).await; // avoid busy loop
+            sleep(Duration::from_millis(10 * backoff_multiplier)).await; // avoid busy loop
         }
     }
 
