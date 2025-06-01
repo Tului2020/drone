@@ -10,9 +10,9 @@ use std::{sync::atomic::Ordering, thread::sleep, time::Duration};
 pub use rc_controls::RcControls;
 #[cfg(feature = "real")]
 use serialport::SerialPort;
+use tracing::debug;
 #[cfg(feature = "real")]
-use tracing::error;
-use tracing::{debug, info};
+use tracing::{error, info};
 
 #[cfg(feature = "udp_server")]
 use crate::udp_server::UdpServer;
