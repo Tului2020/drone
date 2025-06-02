@@ -17,7 +17,7 @@ use tracing::{error, info};
 use crate::{control_server::UdpClient, fc_comms::RcControls, get_time_ms, DroneResult};
 
 /// Threshold for smoother function to avoid sudden jumps in the controller's response
-const SMOOTH_THRESHOLD: i8 = 10;
+const SMOOTH_THRESHOLD: f32 = 10.;
 /// Threshold for button press time to determine if a button is pressed or not
 const BUTTON_PRESS_TIME_THRESHOLD_MS: u128 = 100;
 /// Range for RC control sliders
@@ -264,12 +264,17 @@ impl DualsenseController {
         let thr_multiplier = (2000 - base_thr) as f32 / RC_CONTROL_SLIDER_RANGE;
         let thr = (base_thr + (-Self::smoother(self.ly) * thr_multiplier) as i16) as u16;
 
+        // ------------------------------------------------- FC Controls -------------------------------------------------
         let mut aux1 = Self::dualsense_to_fc(
-            self.square,
-            "square",
+            self.l1,
+            "l1",
             button_last_pressed_tracker,
             now_ms,
-            vec![1000, 1700, 1900],
+            vec![
+                1000, // Disarm
+                1700, // Pre-arm
+                1900, // Arm
+            ],
             previous_rc_controls.aux1,
         );
 
@@ -282,10 +287,15 @@ impl DualsenseController {
             "r1",
             button_last_pressed_tracker,
             now_ms,
-            vec![1000, 1400, 1900],
+            vec![
+                1000, // Acro mode
+                1400, // Angle mode
+                1900, // Horizon mode
+            ],
             previous_rc_controls.aux2,
         );
 
+        // -------------------------------------------------- Custom Controls -------------------------------------------------
         // Update Flight Mode based on create button press
         if self.options {
             let is_new_press = Self::is_new_press(button_last_pressed_tracker, "options", now_ms);
@@ -313,7 +323,6 @@ impl DualsenseController {
                 }
             }
         }
-
         if self.up {
             let is_new_press = Self::is_new_press(button_last_pressed_tracker, "triangle", now_ms);
             if is_new_press {
@@ -324,7 +333,6 @@ impl DualsenseController {
                     .set_flight_mode(FlightMode::Custom(current_default_thr + 10));
             }
         }
-
         if self.down {
             let is_new_press = Self::is_new_press(button_last_pressed_tracker, "cross", now_ms);
             if is_new_press {
@@ -401,8 +409,14 @@ impl DualsenseController {
         if (x as i16).abs() < SMOOTH_THRESHOLD as i16 {
             return 0.; // If the value is below the threshold, return 0
         }
+        // --- LINEAR SMOOTHING ---
+        (RC_CONTROL_SLIDER_RANGE / (RC_CONTROL_SLIDER_RANGE - SMOOTH_THRESHOLD))
+            * (x as f32 - SMOOTH_THRESHOLD)
+        // --- LINEAR SMOOTHING ---
 
-        (x as f32).powi(3) / 128.0_f32.powi(2)
+        // --- CUBIC SMOOTHING ---
+        // (x as f32).powi(3) / RC_CONTROL_SLIDER_RANGE.powi(2)
+        // --- CUBIC SMOOTHING ---
     }
 }
 

@@ -36,8 +36,8 @@ impl FlightMode {
     pub fn get_base_thr(&self) -> i16 {
         match self {
             FlightMode::Ready => 1000,
-            FlightMode::Hover => 1500,
-            FlightMode::Land => 1450,
+            FlightMode::Hover => 1410,
+            FlightMode::Land => 1380,
             FlightMode::Custom(value) => *value,
         }
     }
