@@ -264,14 +264,18 @@ impl DualsenseController {
         let thr_multiplier = (2000 - base_thr) as f32 / RC_CONTROL_SLIDER_RANGE;
         let thr = (base_thr + (-Self::smoother(self.ly) * thr_multiplier) as i16) as u16;
 
-        let aux1 = Self::dualsense_to_fc(
-            self.ps,
-            "ps",
+        let mut aux1 = Self::dualsense_to_fc(
+            self.square,
+            "square",
             button_last_pressed_tracker,
             now_ms,
             vec![1000, 1700, 1900],
             previous_rc_controls.aux1,
         );
+
+        if self.r2 {
+            aux1 = 1000; // R2 is killswitch
+        }
 
         let aux2 = Self::dualsense_to_fc(
             self.r1,
@@ -287,7 +291,7 @@ impl DualsenseController {
             let is_new_press = Self::is_new_press(button_last_pressed_tracker, "options", now_ms);
             if is_new_press {
                 match self.dualsense_state.flight_mode() {
-                    FlightMode::Ready | FlightMode::Land => {
+                    FlightMode::Ready | FlightMode::Land | FlightMode::Custom(_) => {
                         self.dualsense_state.set_flight_mode(FlightMode::Hover);
                     }
                     FlightMode::Hover => {
@@ -300,13 +304,35 @@ impl DualsenseController {
             let is_new_press = Self::is_new_press(button_last_pressed_tracker, "create", now_ms);
             if is_new_press {
                 match self.dualsense_state.flight_mode() {
-                    FlightMode::Ready | FlightMode::Hover => {
+                    FlightMode::Ready | FlightMode::Hover | FlightMode::Custom(_) => {
                         self.dualsense_state.set_flight_mode(FlightMode::Land);
                     }
                     FlightMode::Land => {
                         self.dualsense_state.set_flight_mode(FlightMode::Ready);
                     }
                 }
+            }
+        }
+
+        if self.up {
+            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "triangle", now_ms);
+            if is_new_press {
+                let current_default_thr = self.dualsense_state.flight_mode().get_base_thr();
+
+                // Custom flight mode
+                self.dualsense_state
+                    .set_flight_mode(FlightMode::Custom(current_default_thr + 10));
+            }
+        }
+
+        if self.down {
+            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "cross", now_ms);
+            if is_new_press {
+                let current_default_thr = self.dualsense_state.flight_mode().get_base_thr();
+
+                // Custom flight mode
+                self.dualsense_state
+                    .set_flight_mode(FlightMode::Custom(current_default_thr - 10));
             }
         }
 

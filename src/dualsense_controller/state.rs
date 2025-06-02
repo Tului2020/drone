@@ -28,6 +28,7 @@ pub enum FlightMode {
     Ready,
     Hover,
     Land,
+    Custom(i16),
 }
 
 impl FlightMode {
@@ -37,6 +38,7 @@ impl FlightMode {
             FlightMode::Ready => 1000,
             FlightMode::Hover => 1500,
             FlightMode::Land => 1450,
+            FlightMode::Custom(value) => *value,
         }
     }
 }
@@ -53,6 +55,7 @@ impl Display for FlightMode {
             FlightMode::Ready => write!(f, "Ready"),
             FlightMode::Hover => write!(f, "Hover"),
             FlightMode::Land => write!(f, "Land"),
+            FlightMode::Custom(value) => write!(f, "Custom({})", value),
         }
     }
 }
