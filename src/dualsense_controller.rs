@@ -90,7 +90,7 @@ impl DualSenseController {
         let mut buf = [0u8; 64];
         let mut last_rc_controls = RcControls::default();
         // Keep track of the time when each button was last pressed
-        let mut button_last_pressed = HashMap::new();
+        let mut button_last_pressed_tracker = HashMap::new();
         // Exponential backoff for sending RC controls
         let mut backoff_multiplier = 1;
 
@@ -155,7 +155,7 @@ impl DualSenseController {
 
             last_rc_controls = dual_sense_controller.to_rc_controls(
                 &last_rc_controls,
-                &mut button_last_pressed,
+                &mut button_last_pressed_tracker,
                 now_ms,
             );
 
@@ -237,7 +237,7 @@ impl DualSenseController {
     pub fn to_rc_controls(
         &self,
         previous_controls: &RcControls,
-        button_last_pressed: &mut HashMap<String, u128>,
+        button_last_pressed_tracker: &mut HashMap<String, u128>,
         now_ms: u128,
     ) -> RcControls {
         // Ratio to convert DualSense values to RC controls
@@ -248,39 +248,23 @@ impl DualSenseController {
         let yaw = (1500i16 + (Self::smoother(self.lx) * dualsense_to_rc) as i16) as u16;
         let thr = (1000i16 + (-Self::smoother(self.ly) * 2. * dualsense_to_rc) as i16) as u16;
 
-        let aux1 = if self.ps {
-            // Check if new press of L1 button
-            let is_new_press = Self::is_new_press(button_last_pressed, "ps", now_ms);
+        let aux1 = Self::dualsense_to_fc(
+            self.ps,
+            "ps",
+            button_last_pressed_tracker,
+            now_ms,
+            vec![1000, 1700, 1900],
+            previous_controls.aux1,
+        );
 
-            if is_new_press {
-                match previous_controls.aux1 {
-                    1000 => 1700, // pre-arm
-                    1700 => 1900, // arm
-                    _ => 1000,    // disable arm
-                }
-            } else {
-                previous_controls.aux1
-            }
-        } else {
-            previous_controls.aux1
-        };
-
-        let aux2 = if self.r1 {
-            // Check if new press of R1 button
-            let is_new_press = Self::is_new_press(button_last_pressed, "r1", now_ms);
-
-            if is_new_press {
-                match previous_controls.aux2 {
-                    1000 => 1400, // angle mode
-                    1400 => 1900, // horizon mode
-                    _ => 1000,    // acro mode
-                }
-            } else {
-                previous_controls.aux2
-            }
-        } else {
-            previous_controls.aux2
-        };
+        let aux2 = Self::dualsense_to_fc(
+            self.r1,
+            "r1",
+            button_last_pressed_tracker,
+            now_ms,
+            vec![1000, 1400, 1900],
+            previous_controls.aux2,
+        );
 
         RcControls {
             roll,
@@ -295,13 +279,41 @@ impl DualSenseController {
         }
     }
 
+    // Converts DualSense button presses to flight controller values.
+    fn dualsense_to_fc(
+        dualsense_button: bool,
+        dualsense_button_name: &str,
+        button_last_pressed_tracker: &mut HashMap<String, u128>,
+        now_ms: u128,
+        // NOTE: first value is the default
+        ordered_fc_values: Vec<u16>,
+        current_fc_value: u16,
+    ) -> u16 {
+        if dualsense_button {
+            // Check if new press of button
+            let is_new_press =
+                Self::is_new_press(button_last_pressed_tracker, dualsense_button_name, now_ms);
+
+            if is_new_press {
+                let is_index_found = ordered_fc_values
+                    .iter()
+                    .position(|&x| x == current_fc_value);
+
+                if let Some(found_index) = is_index_found {
+                    return ordered_fc_values[(found_index + 1) % ordered_fc_values.len()];
+                }
+            }
+        }
+        current_fc_value
+    }
+
     fn is_new_press(
-        button_last_pressed: &mut HashMap<String, u128>,
+        button_last_pressed_tracker: &mut HashMap<String, u128>,
         button_name: &str,
         now_ms: u128,
     ) -> bool {
         let mut new_press_bool = false;
-        if let Some(last_time_pressed) = button_last_pressed.get(button_name) {
+        if let Some(last_time_pressed) = button_last_pressed_tracker.get(button_name) {
             if now_ms - *last_time_pressed > BUTTON_PRESS_TIME_THRESHOLD_MS {
                 new_press_bool = true; // New press detected
             }
@@ -310,7 +322,7 @@ impl DualSenseController {
         }
 
         // Update the last pressed time
-        button_last_pressed.insert(button_name.to_string(), now_ms);
+        button_last_pressed_tracker.insert(button_name.to_string(), now_ms);
         new_press_bool
     }
 
