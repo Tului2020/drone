@@ -23,8 +23,6 @@ pub struct RcControls {
     pub aux3: u16,
     /// Auxiliary channel 4 value
     pub aux4: u16,
-    /// Whether the controls are default
-    pub is_default: Option<bool>,
 }
 
 impl RcControls {
@@ -48,14 +46,10 @@ impl RcControls {
         self.aux2 = other.aux2;
         self.aux3 = other.aux3;
         self.aux4 = other.aux4;
-        self.is_default = Some(false);
     }
 
     /// Resets the RcControls struct to default values
     pub fn reset(&mut self) {
-        if self.is_default.unwrap_or(false) {
-            return;
-        }
         *self = RcControls::default();
         debug!("RcControls reset to default");
     }
@@ -101,7 +95,6 @@ impl Default for RcControls {
             aux2: 1000,
             aux3: 1000,
             aux4: 1000,
-            is_default: Some(true),
         }
     }
 }

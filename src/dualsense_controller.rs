@@ -277,7 +277,6 @@ impl DualsenseController {
             aux2,
             aux3: 1000,
             aux4: 1000,
-            is_default: Some(false),
         }
     }
 
