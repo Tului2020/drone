@@ -1,6 +1,7 @@
 //! DualSense controller module
 mod state;
 
+use core::f32;
 use std::{
     collections::HashMap,
     fmt::Display,
@@ -22,6 +23,9 @@ const SMOOTH_THRESHOLD: f32 = 10.;
 const BUTTON_PRESS_TIME_THRESHOLD_MS: u128 = 100;
 /// Range for RC control sliders
 const RC_CONTROL_SLIDER_RANGE: f32 = 128.;
+/// Linear smoothing factor for controller input values
+const LINEAR_SMOOTHING_FACTOR: f32 =
+    RC_CONTROL_SLIDER_RANGE / (RC_CONTROL_SLIDER_RANGE - SMOOTH_THRESHOLD);
 
 /// Represents a DualSense controller with its fields and methods.
 #[allow(dead_code)]
@@ -166,6 +170,7 @@ impl DualsenseController {
                     &previous_rc_controls,
                     &mut button_last_pressed_tracker,
                     now_ms,
+                    &Smoother::Cubic,
                 )
             };
             println!("{new_rc_controls}\n"); // print the RC controls
@@ -252,17 +257,19 @@ impl DualsenseController {
         previous_rc_controls: &RcControls,
         button_last_pressed_tracker: &mut HashMap<String, u128>,
         now_ms: u128,
+        smoother: &Smoother,
     ) -> RcControls {
         // Ratio to convert DualSense values to RC controls
         let dualsense_to_rc = 500. / RC_CONTROL_SLIDER_RANGE;
 
-        let roll = (1500i16 + (Self::smoother(self.rx) * dualsense_to_rc) as i16) as u16;
-        let pitch = (1500i16 + (-Self::smoother(self.ry) * dualsense_to_rc) as i16) as u16;
-        let yaw = (1500i16 + (Self::smoother(self.lx) * dualsense_to_rc) as i16) as u16;
+        let roll = (1500i16 + (Self::smoother(self.rx, smoother) * dualsense_to_rc) as i16) as u16;
+        let pitch =
+            (1500i16 + (-Self::smoother(self.ry, smoother) * dualsense_to_rc) as i16) as u16;
+        let yaw = (1500i16 + (Self::smoother(self.lx, smoother) * dualsense_to_rc) as i16) as u16;
 
         let base_thr = self.dualsense_state.flight_mode().get_base_thr();
         let thr_multiplier = (2000 - base_thr) as f32 / RC_CONTROL_SLIDER_RANGE;
-        let thr = (base_thr + (-Self::smoother(self.ly) * thr_multiplier) as i16) as u16;
+        let thr = (base_thr + (-Self::smoother(self.ly, smoother) * thr_multiplier) as i16) as u16;
 
         // ------------------------------------------------- FC Controls -------------------------------------------------
         let mut aux1 = Self::dualsense_to_fc(
@@ -404,19 +411,27 @@ impl DualsenseController {
     }
 
     /// Smooths the input values to avoid sudden jumps in the controller's response.
-    fn smoother(x: i8) -> f32 {
+    fn smoother(x: i8, smoother: &Smoother) -> f32 {
         // NOTE: need to check as i16 to avoid overflow
         if (x as i16).abs() < SMOOTH_THRESHOLD as i16 {
             return 0.; // If the value is below the threshold, return 0
         }
-        // --- LINEAR SMOOTHING ---
-        (RC_CONTROL_SLIDER_RANGE / (RC_CONTROL_SLIDER_RANGE - SMOOTH_THRESHOLD))
-            * (x as f32 - SMOOTH_THRESHOLD)
-        // --- LINEAR SMOOTHING ---
 
-        // --- CUBIC SMOOTHING ---
-        // (x as f32).powi(3) / RC_CONTROL_SLIDER_RANGE.powi(2)
-        // --- CUBIC SMOOTHING ---
+        match smoother {
+            Smoother::Sinusoidal => {
+                let x_abs = x.abs() as f32;
+                let sign = if x < 0 { -1. } else { 1. };
+
+                sign * RC_CONTROL_SLIDER_RANGE
+                    * (x_abs * f32::consts::PI / (2. * RC_CONTROL_SLIDER_RANGE)).sin()
+            }
+            Smoother::Linear => {
+                let x_abs = x.abs() as f32;
+                let sign = if x < 0 { -1. } else { 1. };
+                sign * (x_abs - SMOOTH_THRESHOLD) * LINEAR_SMOOTHING_FACTOR
+            }
+            Smoother::Cubic => (x as f32).powi(3) / RC_CONTROL_SLIDER_RANGE.powi(2),
+        }
     }
 }
 
@@ -486,4 +501,14 @@ impl Display for DualsenseController {
             if self.mic_mute { "X" } else { " " },
         )
     }
+}
+
+/// Enum representing different smoothing methods for controller input values.
+pub enum Smoother {
+    /// Sinusoidal smoothing
+    Sinusoidal,
+    /// Linear smoothing
+    Linear,
+    /// Cubic smoothing
+    Cubic,
 }
