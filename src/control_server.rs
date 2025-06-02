@@ -104,11 +104,11 @@ impl ControlServer {
         {
             // Spins up a DualSense controller task that reads input from the controller.
             let udp_client = udp_client.clone();
-            let dual_sense_controller_task = tokio::spawn(async move {
-                crate::dualsense_controller::DualSenseController::new(udp_client);
+            let dualsense_controller_task = tokio::spawn(async move {
+                crate::dualsense_controller::DualsenseController::new(udp_client);
                 Ok(())
             });
-            tasks.push(dual_sense_controller_task);
+            tasks.push(dualsense_controller_task);
         }
 
         let _s = join_all(tasks).await;

@@ -21,7 +21,7 @@ const BUTTON_PRESS_TIME_THRESHOLD_MS: u128 = 100;
 /// Represents a DualSense controller with its fields and methods.
 #[allow(dead_code)]
 #[derive(Clone)]
-pub struct DualSenseController {
+pub struct DualsenseController {
     // rust list out PS5 controller fields
     lx: i8,
     ly: i8,
@@ -50,15 +50,15 @@ pub struct DualSenseController {
     mic_mute: bool,
 }
 
-impl DualSenseController {
-    /// Creates a new instance of `DualSenseController` with default values and creates a thread to read input from the controller.
+impl DualsenseController {
+    /// Creates a new instance of `DualsenseController` with default values and creates a thread to read input from the controller.
     ///
     /// # Returns
     ///
-    /// A new `DualSenseController` instance with all fields initialized to their default values.
+    /// A new `DualsenseController` instance with all fields initialized to their default values.
     pub fn new(udp_client: web::Data<UdpClient>) -> Arc<Mutex<Self>> {
-        let dual_sense_controller = Arc::new(Mutex::new(DualSenseController::default()));
-        let dual_sense_controller_clone = dual_sense_controller.clone();
+        let dualsense_controller = Arc::new(Mutex::new(DualsenseController::default()));
+        let dualsense_controller_clone = dualsense_controller.clone();
 
         std::thread::spawn(move || {
             let tokio_runtime = tokio::runtime::Builder::new_current_thread()
@@ -68,7 +68,7 @@ impl DualSenseController {
 
             tokio_runtime.block_on(async {
                 if let Err(e) =
-                    DualSenseController::connect(dual_sense_controller_clone, udp_client).await
+                    DualsenseController::connect(dualsense_controller_clone, udp_client).await
                 {
                     error!("Error connecting to DualSense controller: {e}");
                 } else {
@@ -77,18 +77,18 @@ impl DualSenseController {
             });
         });
 
-        dual_sense_controller
+        dualsense_controller
     }
 
     /// Connects to the DualSense controller and starts reading input.
     pub async fn connect(
-        controls: Arc<Mutex<DualSenseController>>,
+        dualsense_controller: Arc<Mutex<DualsenseController>>,
         udp_client: web::Data<UdpClient>,
     ) -> DroneResult<()> {
         let api = HidApi::new()?;
         let pad = api.open(0x054c, 0x0ce6)?; // Sony DualSense (USB)
         let mut buf = [0u8; 64];
-        let mut last_rc_controls = RcControls::default();
+        let mut previous_rc_controls = RcControls::default();
         // Keep track of the time when each button was last pressed
         let mut button_last_pressed_tracker = HashMap::new();
         // Exponential backoff for sending RC controls
@@ -144,22 +144,22 @@ impl DualSenseController {
             let touch_btn = btns2 & 0x02 != 0;
             let mic_mute = btns2 & 0x04 != 0;
 
-            controls.lock().unwrap().update(
+            dualsense_controller.lock().unwrap().update(
                 lx, ly, rx, ry, l2_val, r2_val, up, right, down, left, square, cross, circle,
                 triangle, l1, r1, l2, // digital click
                 r2, create, options, l3, r3, ps, touch_btn, mic_mute,
             );
 
-            let mut dual_sense_controller = controls.lock().unwrap();
-            let dual_sense_controller = dual_sense_controller.sample(); // get a snapshot of the current state
+            let mut dualsense_controller = dualsense_controller.lock().unwrap();
+            let dualsense_controller = dualsense_controller.sample(); // get a snapshot of the current state
 
-            last_rc_controls = dual_sense_controller.to_rc_controls(
-                &last_rc_controls,
+            let new_rc_controls = dualsense_controller.to_rc_controls(
+                &previous_rc_controls,
                 &mut button_last_pressed_tracker,
                 now_ms,
             );
 
-            if let Err(e) = udp_client.send_rc(last_rc_controls).await {
+            if let Err(e) = udp_client.send_rc(new_rc_controls).await {
                 error!("Failed to send RC controls: {e}");
                 // Implement exponential backoff
                 backoff_multiplier = (backoff_multiplier * 2).min(8); // Cap backoff to a maximum value
@@ -167,6 +167,8 @@ impl DualSenseController {
                 // Reset backoff if sending was successful
                 backoff_multiplier = 1;
             }
+
+            previous_rc_controls.update(&new_rc_controls);
 
             sleep(Duration::from_millis(10 * backoff_multiplier)).await; // avoid busy loop
         }
@@ -236,7 +238,7 @@ impl DualSenseController {
     /// Converts the controller state to `RcControls` for communication with the flight controller.
     pub fn to_rc_controls(
         &self,
-        previous_controls: &RcControls,
+        previous_rc_controls: &RcControls,
         button_last_pressed_tracker: &mut HashMap<String, u128>,
         now_ms: u128,
     ) -> RcControls {
@@ -254,7 +256,7 @@ impl DualSenseController {
             button_last_pressed_tracker,
             now_ms,
             vec![1000, 1700, 1900],
-            previous_controls.aux1,
+            previous_rc_controls.aux1,
         );
 
         let aux2 = Self::dualsense_to_fc(
@@ -263,7 +265,7 @@ impl DualSenseController {
             button_last_pressed_tracker,
             now_ms,
             vec![1000, 1400, 1900],
-            previous_controls.aux2,
+            previous_rc_controls.aux2,
         );
 
         RcControls {
@@ -287,7 +289,7 @@ impl DualSenseController {
         now_ms: u128,
         // NOTE: first value is the default
         ordered_fc_values: Vec<u16>,
-        current_fc_value: u16,
+        previous_fc_value: u16,
     ) -> u16 {
         if dualsense_button {
             // Check if new press of button
@@ -297,14 +299,14 @@ impl DualSenseController {
             if is_new_press {
                 let is_index_found = ordered_fc_values
                     .iter()
-                    .position(|&x| x == current_fc_value);
+                    .position(|&x| x == previous_fc_value);
 
                 if let Some(found_index) = is_index_found {
                     return ordered_fc_values[(found_index + 1) % ordered_fc_values.len()];
                 }
             }
         }
-        current_fc_value
+        previous_fc_value
     }
 
     fn is_new_press(
@@ -337,9 +339,9 @@ impl DualSenseController {
     }
 }
 
-impl Default for DualSenseController {
+impl Default for DualsenseController {
     fn default() -> Self {
-        DualSenseController {
+        DualsenseController {
             lx: 0,
             ly: 0,
             rx: 0,
@@ -369,7 +371,7 @@ impl Default for DualSenseController {
     }
 }
 
-impl Display for DualSenseController {
+impl Display for DualsenseController {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
