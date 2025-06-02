@@ -10,7 +10,7 @@ use std::{
 
 use actix_web::web;
 use hidapi::HidApi;
-use state::DualSenseControllerState;
+use state::{DualSenseControllerState, FlightMode};
 use tokio::time::sleep;
 use tracing::{error, info};
 
@@ -161,14 +161,14 @@ impl DualsenseController {
                 let mut dualsense_controller = dualsense_controller.lock().unwrap();
                 let dualsense_controller = dualsense_controller.sample(); // get a snapshot of the current state
 
-                // println!("\n{dualsense_controller}"); // print the controller state
+                println!("\n{dualsense_controller}"); // print the controller state
                 dualsense_controller.to_rc_controls(
                     &previous_rc_controls,
                     &mut button_last_pressed_tracker,
                     now_ms,
                 )
             };
-            // println!("{new_rc_controls}\n"); // print the RC controls
+            println!("{new_rc_controls}\n"); // print the RC controls
 
             if let Err(e) = udp_client.send_rc(new_rc_controls).await {
                 error!("Failed to send RC controls: {e}");
@@ -260,11 +260,7 @@ impl DualsenseController {
         let pitch = (1500i16 + (-Self::smoother(self.ry) * dualsense_to_rc) as i16) as u16;
         let yaw = (1500i16 + (Self::smoother(self.lx) * dualsense_to_rc) as i16) as u16;
 
-        let base_thr = if self.dualsense_state.flight_mode() {
-            1500
-        } else {
-            1000
-        };
+        let base_thr = self.dualsense_state.flight_mode().get_base_thr();
         let thr_multiplier = (2000 - base_thr) as f32 / RC_CONTROL_SLIDER_RANGE;
         let thr = (base_thr + (-Self::smoother(self.ly) * thr_multiplier) as i16) as u16;
 
@@ -290,8 +286,27 @@ impl DualsenseController {
         if self.options {
             let is_new_press = Self::is_new_press(button_last_pressed_tracker, "options", now_ms);
             if is_new_press {
-                self.dualsense_state
-                    .set_flight_mode(!self.dualsense_state.flight_mode());
+                match self.dualsense_state.flight_mode() {
+                    FlightMode::Ready | FlightMode::Land => {
+                        self.dualsense_state.set_flight_mode(FlightMode::Hover);
+                    }
+                    FlightMode::Hover => {
+                        self.dualsense_state.set_flight_mode(FlightMode::Land);
+                    }
+                }
+            }
+        }
+        if self.create {
+            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "create", now_ms);
+            if is_new_press {
+                match self.dualsense_state.flight_mode() {
+                    FlightMode::Ready | FlightMode::Hover => {
+                        self.dualsense_state.set_flight_mode(FlightMode::Land);
+                    }
+                    FlightMode::Land => {
+                        self.dualsense_state.set_flight_mode(FlightMode::Ready);
+                    }
+                }
             }
         }
 
