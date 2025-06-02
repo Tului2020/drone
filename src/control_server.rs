@@ -1,5 +1,7 @@
 //! Control server. This module talks to a frontend application and sends messages to
 //! the UDP server.
+use std::net::ToSocketAddrs;
+
 use actix_files as fs;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use futures::future::join_all;
@@ -152,9 +154,19 @@ impl UdpClient {
     pub async fn new(server_addr: String) -> DroneResult<Self> {
         let socket = UdpSocket::bind("0.0.0.0:0").await?;
 
+        let (host, port_str) = server_addr
+            .split_once(':')
+            .expect("missing ':' in host:port");
+
+        let port: u16 = port_str.parse().expect("port is not a valid number");
+
         Ok(UdpClient {
             socket,
-            server_addr,
+            server_addr: (host, port)
+                .to_socket_addrs()?
+                .find(|a| a.is_ipv4())
+                .expect(&format!("{server_addr} has no IPv4 address"))
+                .to_string(),
         })
     }
 
