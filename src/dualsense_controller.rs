@@ -20,6 +20,8 @@ use crate::{control_server::UdpClient, fc_comms::RcControls, get_time_ms, DroneR
 const SMOOTH_THRESHOLD: i8 = 10;
 /// Threshold for button press time to determine if a button is pressed or not
 const BUTTON_PRESS_TIME_THRESHOLD_MS: u128 = 100;
+/// Range for RC control sliders
+const RC_CONTROL_SLIDER_RANGE: f32 = 128.;
 
 /// Represents a DualSense controller with its fields and methods.
 #[allow(dead_code)]
@@ -252,12 +254,19 @@ impl DualsenseController {
         now_ms: u128,
     ) -> RcControls {
         // Ratio to convert DualSense values to RC controls
-        let dualsense_to_rc = 500. / 128.;
+        let dualsense_to_rc = 500. / RC_CONTROL_SLIDER_RANGE;
 
-        let roll: u16 = (1500i16 + (Self::smoother(self.rx) * dualsense_to_rc) as i16) as u16;
-        let pitch: u16 = (1500i16 + (-Self::smoother(self.ry) * dualsense_to_rc) as i16) as u16;
+        let roll = (1500i16 + (Self::smoother(self.rx) * dualsense_to_rc) as i16) as u16;
+        let pitch = (1500i16 + (-Self::smoother(self.ry) * dualsense_to_rc) as i16) as u16;
         let yaw = (1500i16 + (Self::smoother(self.lx) * dualsense_to_rc) as i16) as u16;
-        let thr = (1000i16 + (-Self::smoother(self.ly) * 2. * dualsense_to_rc) as i16) as u16;
+
+        let base_thr = if self.dualsense_state.flight_mode() {
+            1500
+        } else {
+            1000
+        };
+        let thr_multiplier = (2000 - base_thr) as f32 / RC_CONTROL_SLIDER_RANGE;
+        let thr = (base_thr + (-Self::smoother(self.ly) * thr_multiplier) as i16) as u16;
 
         let aux1 = Self::dualsense_to_fc(
             self.ps,
