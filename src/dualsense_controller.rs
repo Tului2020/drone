@@ -248,9 +248,9 @@ impl DualSenseController {
         let yaw = (1500i16 + (Self::smoother(self.lx) * dualsense_to_rc) as i16) as u16;
         let thr = (1000i16 + (-Self::smoother(self.ly) * 2. * dualsense_to_rc) as i16) as u16;
 
-        let aux1 = if self.l1 {
+        let aux1 = if self.ps {
             // Check if new press of L1 button
-            let is_new_press = Self::is_new_press(button_last_pressed, "l1", now_ms);
+            let is_new_press = Self::is_new_press(button_last_pressed, "ps", now_ms);
 
             if is_new_press {
                 match previous_controls.aux1 {
