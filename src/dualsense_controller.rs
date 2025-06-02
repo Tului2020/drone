@@ -1,4 +1,6 @@
 //! DualSense controller module
+mod state;
+
 use std::{
     collections::HashMap,
     fmt::Display,
@@ -8,6 +10,7 @@ use std::{
 
 use actix_web::web;
 use hidapi::HidApi;
+use state::DualSenseControllerState;
 use tokio::time::sleep;
 use tracing::{error, info};
 
@@ -48,6 +51,7 @@ pub struct DualsenseController {
     ps: bool,
     touch_btn: bool,
     mic_mute: bool,
+    dualsense_state: DualSenseControllerState,
 }
 
 impl DualsenseController {
@@ -90,6 +94,7 @@ impl DualsenseController {
         let mut buf = [0u8; 64];
         let mut previous_rc_controls = RcControls::default();
         // Keep track of the time when each button was last pressed
+        // TODO: make button_last_pressed_tracker a field of DualsenseController
         let mut button_last_pressed_tracker = HashMap::new();
         // Exponential backoff for sending RC controls
         let mut backoff_multiplier = 1;
@@ -150,14 +155,18 @@ impl DualsenseController {
                 r2, create, options, l3, r3, ps, touch_btn, mic_mute,
             );
 
-            let mut dualsense_controller = dualsense_controller.lock().unwrap();
-            let dualsense_controller = dualsense_controller.sample(); // get a snapshot of the current state
+            let new_rc_controls = {
+                let mut dualsense_controller = dualsense_controller.lock().unwrap();
+                let dualsense_controller = dualsense_controller.sample(); // get a snapshot of the current state
 
-            let new_rc_controls = dualsense_controller.to_rc_controls(
-                &previous_rc_controls,
-                &mut button_last_pressed_tracker,
-                now_ms,
-            );
+                // println!("\n{dualsense_controller}"); // print the controller state
+                dualsense_controller.to_rc_controls(
+                    &previous_rc_controls,
+                    &mut button_last_pressed_tracker,
+                    now_ms,
+                )
+            };
+            // println!("{new_rc_controls}\n"); // print the RC controls
 
             if let Err(e) = udp_client.send_rc(new_rc_controls).await {
                 error!("Failed to send RC controls: {e}");
@@ -231,13 +240,13 @@ impl DualsenseController {
     }
 
     /// Returns the current state of the controller
-    pub fn sample(&mut self) -> Self {
-        self.clone()
+    pub fn sample(&mut self) -> &mut Self {
+        self
     }
 
     /// Converts the controller state to `RcControls` for communication with the flight controller.
     pub fn to_rc_controls(
-        &self,
+        &mut self,
         previous_rc_controls: &RcControls,
         button_last_pressed_tracker: &mut HashMap<String, u128>,
         now_ms: u128,
@@ -267,6 +276,15 @@ impl DualsenseController {
             vec![1000, 1400, 1900],
             previous_rc_controls.aux2,
         );
+
+        // Update Flight Mode based on create button press
+        if self.options {
+            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "options", now_ms);
+            if is_new_press {
+                self.dualsense_state
+                    .set_flight_mode(!self.dualsense_state.flight_mode());
+            }
+        }
 
         RcControls {
             roll,
@@ -366,6 +384,7 @@ impl Default for DualsenseController {
             ps: false,
             touch_btn: false,
             mic_mute: false,
+            dualsense_state: DualSenseControllerState::default(),
         }
     }
 }
