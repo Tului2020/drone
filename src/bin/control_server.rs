@@ -12,28 +12,35 @@ use tracing::{debug, error, info};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> DroneResult {
-    let running = Arc::new(AtomicBool::new(true));
-    let running_clone = running.clone();
-
-    let control_server = ControlServer::new("./config.json")?;
-
-    ctrlc::set_handler(move || {
-        debug!("Ctrl+C detected!");
-        running_clone.store(false, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
+    // Create failure flag to handle Ctrl+C gracefully
+    let failure_flag_ctrlc_task = Arc::new(AtomicBool::new(false));
+    let failure_flag_checker = failure_flag_ctrlc_task.clone();
 
     let ctrlc_task = tokio::spawn(async move {
-        while running.load(Ordering::SeqCst) {
+        ctrlc::set_handler(move || {
+            debug!("Ctrl+C detected!");
+            failure_flag_ctrlc_task.store(true, Ordering::SeqCst);
+        })
+        .expect("Error setting Ctrl-C handler");
+
+        loop {
+            if failure_flag_checker.load(Ordering::SeqCst) {
+                info!("Ctrl-C handler detected failure flag, exiting...");
+                break;
+            }
+
             sleep(Duration::from_secs(1)).await;
         }
     });
 
-    let control_server_task = tokio::spawn(async move {
-        if let Err(e) = control_server.start().await {
-            error!("Error starting control server: {e}");
-        }
-    });
+    let control_server_task = {
+        let control_server = ControlServer::new("./config.json")?;
+        tokio::spawn(async move {
+            if let Err(e) = control_server.start().await {
+                error!("Error starting control server: {e}");
+            }
+        })
+    };
 
     tokio::select! {
         _ = ctrlc_task => {

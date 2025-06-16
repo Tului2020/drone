@@ -9,7 +9,7 @@ actix-files = { version = "=0.6.6", optional = true }
 actix-web = { version = "=4.11.0", optional = true }
 ctrlc = "=3.4.7"
 futures = { version = "0.3.31", optional = true }
-hidapi = { version = "2.6.3", optional = true }
+gilrs = { version = "0.11.0", optional = true }
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.140"
 serialport = { version = "=4.7.2", default-features = false, optional = true }
@@ -28,10 +28,10 @@ tracing-subscriber = "=0.3.19"
 path = "src/lib.rs"
 
 [features]
-default = ["raspi", "dualsense"]
+default = []
 real = ["serialport"]
 udp_server = ["futures"]
-dualsense = ["hidapi", "actix-web", "actix-files", "futures"]
+dualsense = ["gilrs", "actix-web", "actix-files", "futures"]
 
 # raspberry pi specific features
 raspi = ["udp_server", "real"]

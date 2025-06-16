@@ -2,25 +2,18 @@
 mod state;
 
 use core::f32;
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{fmt::Display, time::Duration};
 
 use actix_web::web;
-use hidapi::HidApi;
+use gilrs::{Axis::*, Button::*, Event, EventType, Gilrs};
 use state::{DualSenseControllerState, FlightMode};
 use tokio::time::sleep;
-use tracing::{error, info};
+use tracing::error;
 
-use crate::{control_server::UdpClient, fc_comms::RcControls, get_time_ms, DroneResult};
+use crate::{control_server::UdpClient, fc_comms::RcControls, DroneResult};
 
 /// Threshold for smoother function to avoid sudden jumps in the controller's response
 const SMOOTH_THRESHOLD: f32 = 10.;
-/// Threshold for button press time to determine if a button is pressed or not
-const BUTTON_PRESS_TIME_THRESHOLD_MS: u128 = 100;
 /// Range for RC control sliders
 const RC_CONTROL_SLIDER_RANGE: f32 = 128.;
 /// Linear smoothing factor for controller input values
@@ -66,197 +59,107 @@ impl DualsenseController {
     /// # Returns
     ///
     /// A new `DualsenseController` instance with all fields initialized to their default values.
-    pub fn new(udp_client: web::Data<UdpClient>) -> Arc<Mutex<Self>> {
-        let dualsense_controller = Arc::new(Mutex::new(DualsenseController::default()));
-        let dualsense_controller_clone = dualsense_controller.clone();
-
-        std::thread::spawn(move || {
-            let tokio_runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("Failed to create Tokio runtime");
-
-            tokio_runtime.block_on(async {
-                if let Err(e) =
-                    DualsenseController::connect(dualsense_controller_clone, udp_client).await
-                {
-                    error!("Error connecting to DualSense controller: {e}");
-                } else {
-                    info!("DualSense controller connected successfully.");
-                }
-            });
-        });
-
-        dualsense_controller
-    }
-
-    /// Connects to the DualSense controller and starts reading input.
-    pub async fn connect(
-        dualsense_controller: Arc<Mutex<DualsenseController>>,
-        udp_client: web::Data<UdpClient>,
-    ) -> DroneResult<()> {
-        let api = HidApi::new()?;
-        let pad = api.open(0x054c, 0x0ce6)?; // Sony DualSense (USB)
-        let mut buf = [0u8; 64];
+    pub async fn new(udp_client: web::Data<UdpClient>) -> DroneResult {
+        let mut controller_api = Gilrs::new()?;
+        let mut dualsense_controller = DualsenseController::default();
         let mut previous_rc_controls = RcControls::default();
-        // Keep track of the time when each button was last pressed
-        // TODO: make button_last_pressed_tracker a field of DualsenseController
-        let mut button_last_pressed_tracker = HashMap::new();
         // Exponential backoff for sending RC controls
         let mut backoff_multiplier = 1;
 
         loop {
-            let n = pad.read_timeout(&mut buf, 1000)?;
-            if n == 0 || buf[0] != 0x01 {
-                continue;
-            } // empty / other reports
+            if let Some(Event { event, .. }) = controller_api.next_event() {
+                let mut is_new_event = true;
 
-            let now_ms = get_time_ms();
+                match event {
+                    EventType::ButtonPressed(button, _) => {
+                        match button {
+                            South => dualsense_controller.cross = true,
+                            East => dualsense_controller.circle = true,
+                            North => dualsense_controller.triangle = true,
+                            West => dualsense_controller.square = true,
+                            LeftTrigger => dualsense_controller.l1 = true,
+                            LeftTrigger2 => dualsense_controller.l2 = true,
+                            RightTrigger => dualsense_controller.r1 = true,
+                            RightTrigger2 => dualsense_controller.r2 = true,
+                            Select => dualsense_controller.create = true,
+                            Start => dualsense_controller.options = true,
+                            LeftThumb => dualsense_controller.l3 = true,
+                            RightThumb => dualsense_controller.r3 = true,
+                            DPadUp => dualsense_controller.up = true,
+                            DPadDown => dualsense_controller.down = true,
+                            DPadLeft => dualsense_controller.left = true,
+                            DPadRight => dualsense_controller.right = true,
+                            // C => todo!(),
+                            // Z => todo!(),
+                            // Mode => todo!(),
+                            _ => is_new_event = false,
+                        }
+                    }
+                    EventType::ButtonReleased(button, _) => {
+                        is_new_event = false;
+                        match button {
+                            South => dualsense_controller.cross = false,
+                            East => dualsense_controller.circle = false,
+                            North => dualsense_controller.triangle = false,
+                            West => dualsense_controller.square = false,
+                            LeftTrigger => dualsense_controller.l1 = false,
+                            LeftTrigger2 => dualsense_controller.l2 = false,
+                            RightTrigger => dualsense_controller.r1 = false,
+                            RightTrigger2 => dualsense_controller.r2 = false,
+                            Select => dualsense_controller.create = false,
+                            Start => dualsense_controller.options = false,
+                            LeftThumb => dualsense_controller.l3 = false,
+                            RightThumb => dualsense_controller.r3 = false,
+                            DPadUp => dualsense_controller.up = false,
+                            DPadDown => dualsense_controller.down = false,
+                            DPadLeft => dualsense_controller.left = false,
+                            DPadRight => dualsense_controller.right = false,
+                            // C => todo!(),
+                            // Z => todo!(),
+                            // Mode => todo!(),
+                            _ => is_new_event = false,
+                        }
+                    }
+                    EventType::AxisChanged(axis, value, _) => {
+                        match axis {
+                            LeftStickX => dualsense_controller.lx = (value * 128.0) as i8,
+                            LeftStickY => dualsense_controller.ly = -(value * 128.0) as i8,
+                            RightStickX => dualsense_controller.rx = (value * 128.0) as i8,
+                            RightStickY => dualsense_controller.ry = -(value * 128.0) as i8,
+                            // RightZ => println!("Right Z: {}", value),
+                            // DPadX => println!("DPad X: {}", value),
+                            // DPadY => println!("DPad Y: {}", value),
+                            // LeftZ => println!("Left Z: {}", value),
+                            _ => is_new_event = false,
+                        }
+                    }
+                    _ => is_new_event = false,
+                }
 
-            /* ---------------- sticks ---------------- */
-            let lx = (buf[1] as i16 - 128) as i8;
-            let ly = (buf[2] as i16 - 128) as i8;
-            let rx = (buf[3] as i16 - 128) as i8;
-            let ry = (buf[4] as i16 - 128) as i8;
+                if is_new_event {
+                    let rc_controls = dualsense_controller
+                        .to_rc_controls(&previous_rc_controls, &Smoother::Cubic);
 
-            /* ---------------- triggers -------------- */
-            let l2_val = buf[5]; // analog 0-255
-            let r2_val = buf[6];
+                    if let Err(e) = udp_client.send_rc(rc_controls.clone()).await {
+                        error!("Failed to send RC controls: {e}");
+                        // Implement exponential backoff
+                        backoff_multiplier = (backoff_multiplier * 2).min(8); // Cap backoff to a maximum value
+                    } else {
+                        // Reset backoff if sending was successful
+                        backoff_multiplier = 1;
+                    }
 
-            /* ---------------- hats & face ----------- */
-            let hats_face = buf[8];
-            let dpad_nib = hats_face & 0x0F;
-            let face_nib = (hats_face >> 4) & 0x0F;
-
-            let up = matches!(dpad_nib, 0 | 1 | 7);
-            let right = matches!(dpad_nib, 1 | 2 | 3);
-            let down = matches!(dpad_nib, 3 | 4 | 5);
-            let left = matches!(dpad_nib, 5 | 6 | 7);
-
-            let square = face_nib & 0b0001 != 0;
-            let cross = face_nib & 0b0010 != 0;
-            let circle = face_nib & 0b0100 != 0;
-            let triangle = face_nib & 0b1000 != 0;
-
-            /* ---------------- shoulders & misc ------ */
-            let btns1 = buf[9];
-            let btns2 = buf[10];
-
-            let l1 = btns1 & 0x01 != 0;
-            let r1 = btns1 & 0x02 != 0;
-            let l2 = btns1 & 0x04 != 0; // digital click
-            let r2 = btns1 & 0x08 != 0;
-            let create = btns1 & 0x10 != 0;
-            let options = btns1 & 0x20 != 0;
-            let l3 = btns1 & 0x40 != 0;
-            let r3 = btns1 & 0x80 != 0;
-
-            let ps = btns2 & 0x01 != 0;
-            let touch_btn = btns2 & 0x02 != 0;
-            let mic_mute = btns2 & 0x04 != 0;
-
-            dualsense_controller.lock().unwrap().update(
-                lx, ly, rx, ry, l2_val, r2_val, up, right, down, left, square, cross, circle,
-                triangle, l1, r1, l2, // digital click
-                r2, create, options, l3, r3, ps, touch_btn, mic_mute,
-            );
-
-            let new_rc_controls = {
-                let mut dualsense_controller = dualsense_controller.lock().unwrap();
-                let dualsense_controller = dualsense_controller.sample(); // get a snapshot of the current state
-
-                println!("\n{dualsense_controller}"); // print the controller state
-                dualsense_controller.to_rc_controls(
-                    &previous_rc_controls,
-                    &mut button_last_pressed_tracker,
-                    now_ms,
-                    &Smoother::Cubic,
-                )
-            };
-            println!("{new_rc_controls}\n"); // print the RC controls
-
-            if let Err(e) = udp_client.send_rc(new_rc_controls).await {
-                error!("Failed to send RC controls: {e}");
-                // Implement exponential backoff
-                backoff_multiplier = (backoff_multiplier * 2).min(8); // Cap backoff to a maximum value
-            } else {
-                // Reset backoff if sending was successful
-                backoff_multiplier = 1;
+                    previous_rc_controls.update(&rc_controls);
+                }
             }
-
-            previous_rc_controls.update(&new_rc_controls);
-
-            sleep(Duration::from_millis(10 * backoff_multiplier)).await; // avoid busy loop
+            sleep(Duration::from_millis(1 * backoff_multiplier)).await;
         }
-    }
-
-    /// Updates the controller state with new values.
-    pub fn update(
-        &mut self,
-        lx: i8,
-        ly: i8,
-        rx: i8,
-        ry: i8,
-        l2_val: u8,
-        r2_val: u8,
-        up: bool,
-        right: bool,
-        down: bool,
-        left: bool,
-        square: bool,
-        cross: bool,
-        circle: bool,
-        triangle: bool,
-        l1: bool,
-        r1: bool,
-        l2: bool, // digital click
-        r2: bool,
-        create: bool,
-        options: bool,
-        l3: bool,
-        r3: bool,
-        ps: bool,
-        touch_btn: bool,
-        mic_mute: bool,
-    ) {
-        self.lx = lx;
-        self.ly = ly;
-        self.rx = rx;
-        self.ry = ry;
-        self.l2_val = l2_val;
-        self.r2_val = r2_val;
-        self.up = up;
-        self.right = right;
-        self.down = down;
-        self.left = left;
-        self.square = square;
-        self.cross = cross;
-        self.circle = circle;
-        self.triangle = triangle;
-        self.l1 = l1;
-        self.r1 = r1;
-        self.l2 = l2;
-        self.r2 = r2;
-        self.create = create;
-        self.options = options;
-        self.l3 = l3;
-        self.r3 = r3;
-        self.ps = ps;
-        self.touch_btn = touch_btn;
-        self.mic_mute = mic_mute;
-    }
-
-    /// Returns the current state of the controller
-    pub fn sample(&mut self) -> &mut Self {
-        self
     }
 
     /// Converts the controller state to `RcControls` for communication with the flight controller.
     pub fn to_rc_controls(
         &mut self,
         previous_rc_controls: &RcControls,
-        button_last_pressed_tracker: &mut HashMap<String, u128>,
-        now_ms: u128,
         smoother: &Smoother,
     ) -> RcControls {
         // Ratio to convert DualSense values to RC controls
@@ -274,9 +177,6 @@ impl DualsenseController {
         // ------------------------------------------------- FC Controls -------------------------------------------------
         let mut aux1 = Self::dualsense_to_fc(
             self.l1,
-            "l1",
-            button_last_pressed_tracker,
-            now_ms,
             vec![
                 1000, // Disarm
                 1700, // Pre-arm
@@ -291,9 +191,6 @@ impl DualsenseController {
 
         let aux2 = Self::dualsense_to_fc(
             self.r1,
-            "r1",
-            button_last_pressed_tracker,
-            now_ms,
             vec![
                 1000, // Acro mode
                 1400, // Angle mode
@@ -305,50 +202,38 @@ impl DualsenseController {
         // -------------------------------------------------- Custom Controls -------------------------------------------------
         // Update Flight Mode based on create button press
         if self.options {
-            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "options", now_ms);
-            if is_new_press {
-                match self.dualsense_state.flight_mode() {
-                    FlightMode::Ready | FlightMode::Land | FlightMode::Custom(_) => {
-                        self.dualsense_state.set_flight_mode(FlightMode::Hover);
-                    }
-                    FlightMode::Hover => {
-                        self.dualsense_state.set_flight_mode(FlightMode::Land);
-                    }
+            match self.dualsense_state.flight_mode() {
+                FlightMode::Ready | FlightMode::Land | FlightMode::Custom(_) => {
+                    self.dualsense_state.set_flight_mode(FlightMode::Hover);
+                }
+                FlightMode::Hover => {
+                    self.dualsense_state.set_flight_mode(FlightMode::Land);
                 }
             }
         }
         if self.create {
-            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "create", now_ms);
-            if is_new_press {
-                match self.dualsense_state.flight_mode() {
-                    FlightMode::Ready | FlightMode::Hover | FlightMode::Custom(_) => {
-                        self.dualsense_state.set_flight_mode(FlightMode::Land);
-                    }
-                    FlightMode::Land => {
-                        self.dualsense_state.set_flight_mode(FlightMode::Ready);
-                    }
+            match self.dualsense_state.flight_mode() {
+                FlightMode::Ready | FlightMode::Hover | FlightMode::Custom(_) => {
+                    self.dualsense_state.set_flight_mode(FlightMode::Land);
+                }
+                FlightMode::Land => {
+                    self.dualsense_state.set_flight_mode(FlightMode::Ready);
                 }
             }
         }
         if self.up {
-            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "triangle", now_ms);
-            if is_new_press {
-                let current_default_thr = self.dualsense_state.flight_mode().get_base_thr();
+            let current_default_thr = self.dualsense_state.flight_mode().get_base_thr();
 
-                // Custom flight mode
-                self.dualsense_state
-                    .set_flight_mode(FlightMode::Custom(current_default_thr + 10));
-            }
+            // Custom flight mode
+            self.dualsense_state
+                .set_flight_mode(FlightMode::Custom(current_default_thr + 10));
         }
         if self.down {
-            let is_new_press = Self::is_new_press(button_last_pressed_tracker, "cross", now_ms);
-            if is_new_press {
-                let current_default_thr = self.dualsense_state.flight_mode().get_base_thr();
+            let current_default_thr = self.dualsense_state.flight_mode().get_base_thr();
 
-                // Custom flight mode
-                self.dualsense_state
-                    .set_flight_mode(FlightMode::Custom(current_default_thr - 10));
-            }
+            // Custom flight mode
+            self.dualsense_state
+                .set_flight_mode(FlightMode::Custom(current_default_thr - 10));
         }
 
         RcControls {
@@ -366,48 +251,20 @@ impl DualsenseController {
     // Converts DualSense button presses to flight controller values.
     fn dualsense_to_fc(
         dualsense_button: bool,
-        dualsense_button_name: &str,
-        button_last_pressed_tracker: &mut HashMap<String, u128>,
-        now_ms: u128,
         // NOTE: first value is the default
         ordered_fc_values: Vec<u16>,
         previous_fc_value: u16,
     ) -> u16 {
         if dualsense_button {
-            // Check if new press of button
-            let is_new_press =
-                Self::is_new_press(button_last_pressed_tracker, dualsense_button_name, now_ms);
+            let is_index_found = ordered_fc_values
+                .iter()
+                .position(|&x| x == previous_fc_value);
 
-            if is_new_press {
-                let is_index_found = ordered_fc_values
-                    .iter()
-                    .position(|&x| x == previous_fc_value);
-
-                if let Some(found_index) = is_index_found {
-                    return ordered_fc_values[(found_index + 1) % ordered_fc_values.len()];
-                }
+            if let Some(found_index) = is_index_found {
+                return ordered_fc_values[(found_index + 1) % ordered_fc_values.len()];
             }
         }
         previous_fc_value
-    }
-
-    fn is_new_press(
-        button_last_pressed_tracker: &mut HashMap<String, u128>,
-        button_name: &str,
-        now_ms: u128,
-    ) -> bool {
-        let mut new_press_bool = false;
-        if let Some(last_time_pressed) = button_last_pressed_tracker.get(button_name) {
-            if now_ms - *last_time_pressed > BUTTON_PRESS_TIME_THRESHOLD_MS {
-                new_press_bool = true; // New press detected
-            }
-        } else {
-            new_press_bool = true; // First press detected
-        }
-
-        // Update the last pressed time
-        button_last_pressed_tracker.insert(button_name.to_string(), now_ms);
-        new_press_bool
     }
 
     /// Smooths the input values to avoid sudden jumps in the controller's response.

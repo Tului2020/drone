@@ -27,5 +27,5 @@ pub enum DroneError {
     #[cfg(feature = "dualsense")]
     /// DualSense controller errors
     #[error(transparent)]
-    DualSenseError(#[from] hidapi::HidError),
+    DualSenseError(#[from] gilrs::Error),
 }
