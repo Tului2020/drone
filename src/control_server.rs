@@ -56,35 +56,33 @@ impl ControlServer {
     pub async fn start(&self) -> DroneResult<()> {
         let udp_client = web::Data::new(UdpClient::new(self.udp_server_addr.clone()).await?);
 
-        let mut tasks = vec![];
-
-        // Sends a heartbeat message at regular intervals to the UDP server.
-        let heartbeat_interval_ms = self.heartbeat_interval_ms;
-        let udp_client_clone = udp_client.clone();
         // Spawn the loop before server starts
-        let heartbeat_task = tokio::spawn(async move {
-            let mut backoff_multiplier = 1;
-            loop {
-                // Send message (handle error as needed)
-                if let Err(e) = udp_client_clone.send_heartbeat().await {
-                    error!("UDP send failed: {e:?}");
-                    backoff_multiplier = (backoff_multiplier * 2).min(8)
-                } else {
-                    backoff_multiplier = 1; // Reset exponential backoff on success
+        let heartbeat_task: tokio::task::JoinHandle<DroneResult> = {
+            let heartbeat_interval_ms = self.heartbeat_interval_ms;
+            let udp_client_heartbeat_task = udp_client.clone();
+            tokio::spawn(async move {
+                let mut backoff_multiplier = 1;
+
+                loop {
+                    // Send message (handle error as needed)
+                    if let Err(e) = udp_client_heartbeat_task.send_heartbeat().await {
+                        error!("UDP send failed: {e:?}");
+                        backoff_multiplier = (backoff_multiplier * 2).min(8)
+                    } else {
+                        backoff_multiplier = 1; // Reset exponential backoff on success
+                    }
+
+                    tokio::time::sleep(std::time::Duration::from_millis(
+                        heartbeat_interval_ms * backoff_multiplier,
+                    ))
+                    .await;
                 }
-
-                tokio::time::sleep(std::time::Duration::from_millis(
-                    heartbeat_interval_ms * backoff_multiplier,
-                ))
-                .await;
-            }
-        });
-
-        tasks.push(heartbeat_task);
+            })
+        };
 
         // Spins up a web server that listens for incoming HTTP requests and serves static files.
-        let udp_client_clone = udp_client.clone();
-        let server_task = {
+        let server_task: tokio::task::JoinHandle<DroneResult> = {
+            let udp_client_clone = udp_client.clone();
             let addr = self.addr.clone();
             tokio::spawn(async move {
                 HttpServer::new(move || {
@@ -97,23 +95,28 @@ impl ControlServer {
                 .unwrap()
                 .workers(1)
                 .run()
-                .await
+                .await?;
+
+                Ok(())
             })
         };
-        tasks.push(server_task);
 
         #[cfg(feature = "dualsense")]
-        {
+        let dualsense_controller_task = {
+            use crate::dualsense_controller::DualsenseController;
+
             // Spins up a DualSense controller task that reads input from the controller.
             let udp_client = udp_client.clone();
-            let dualsense_controller_task = tokio::spawn(async move {
-                crate::dualsense_controller::DualsenseController::new(udp_client);
-                Ok(())
-            });
-            tasks.push(dualsense_controller_task);
-        }
+            tokio::spawn(DualsenseController::new(udp_client))
+        };
 
-        let _s = join_all(tasks).await;
+        let _s = join_all(vec![
+            server_task,
+            heartbeat_task,
+            #[cfg(feature = "dualsense")]
+            dualsense_controller_task,
+        ])
+        .await;
 
         Ok(())
     }
