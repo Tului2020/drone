@@ -1,0 +1,323 @@
+defaults nosave
+
+
+# version
+# Betaflight / STM32F7X2 (S7X2) 4.4.3 Nov 15 2023 / 14:30:34 (738127e7e) MSP API: 1.45
+
+# config: YES
+
+# start the command batch
+batch start
+
+# reset configuration to default settings
+defaults nosave
+
+board_name MAMBAF722_2022B
+manufacturer_id DIAT
+mcu_id 005000373033510632323536
+signature 
+
+# name: Glide 5"
+
+# timer
+timer B01 AF1
+# pin B01: TIM1 CH3N (AF1)
+
+# dma
+dma pin B01 0
+# pin B01: DMA2 Stream 6 Channel 0
+
+# feature
+feature -LED_STRIP
+feature -AIRMODE
+feature SOFTSERIAL
+feature GPS
+
+# serial
+serial 1 64 115200 57600 0 115200
+serial 2 2048 115200 57600 0 115200
+serial 3 64 115200 57600 0 115200
+serial 4 64 115200 57600 0 115200
+serial 5 2 115200 115200 0 115200
+
+# beacon
+beacon RX_LOST
+beacon RX_SET
+
+# led
+led 0 8,0::CB:1
+led 1 9,0::CB:1
+led 2 10,0::CB:1
+led 3 11,0::CB:1
+led 4 12,0::CB:1
+led 5 13,0::CB:1
+led 6 14,0::CB:1
+led 7 15,0::CB:1
+
+# aux
+aux 0 0 2 925 1075 0 0
+aux 1 1 0 1925 2050 0 0
+aux 2 46 0 1925 2050 0 0
+aux 3 13 3 1350 1475 0 0
+aux 4 28 2 925 1075 0 0
+aux 5 36 3 1900 2075 0 0
+
+# rxrange
+rxrange 0 988 2011
+rxrange 1 988 2011
+rxrange 2 988 2011
+rxrange 3 988 2011
+
+# vtxtable
+vtxtable bands 6
+vtxtable channels 8
+vtxtable band 1 BAND     A FACTORY 5865 5845 5825 5804 5785 5765 5745 5725
+vtxtable band 2 BAND     B FACTORY 5733 5752 5771 5790 5809 5828 5847 5866
+vtxtable band 3 BAND     E FACTORY 5705 5685 5665 5645 5885 5905 5925 5945
+vtxtable band 4 BAND     F FACTORY 5740 5760 5780 5800 5820 5840 5860 5880
+vtxtable band 5 RACEBAND R FACTORY 5658 5695 5732 5769 5806 5843 5880 5917
+vtxtable band 6 LOWRACE  L FACTORY 5362 5399 5436 5473 5510 5547 5584 5621
+vtxtable powerlevels 4
+vtxtable powervalues 1 2 3 4
+vtxtable powerlabels 25 400 800 MAX
+
+# rxfail
+rxfail 4 s 1800
+
+# master
+set gyro_lpf1_static_hz = 0
+set gyro_lpf2_static_hz = 750
+set dyn_notch_count = 4
+set dyn_notch_min_hz = 90
+set dyn_notch_max_hz = 800
+set gyro_lpf1_dyn_min_hz = 0
+set gyro_lpf1_dyn_max_hz = 0
+set acc_lpf_hz = 10
+set acc_calibration = -52,-18,-67,1
+set min_check = 1020
+set max_check = 2000
+set rssi_src_frame_errors = ON
+set fpv_mix_degrees = 45
+set rx_min_usec = 1000
+set rx_max_usec = 2000
+set min_throttle = 1098
+set motor_pwm_protocol = DSHOT600
+set failsafe_delay = 10
+set failsafe_procedure = GPS-RESCUE
+set vbat_scale = 168
+set vbat_divider = 15
+set ibata_scale = 299
+set yaw_motors_reversed = ON
+set small_angle = 180
+set gps_auto_baud = ON
+set gps_ublox_use_galileo = ON
+set gps_set_home_point_once = ON
+set gps_rescue_initial_climb = 0
+set gps_rescue_ground_speed = 900
+set gps_rescue_max_angle = 50
+set gps_rescue_min_sats = 6
+set deadband = 20
+set yaw_deadband = 20
+set simplified_gyro_filter_multiplier = 150
+set osd_warn_bitmask = 24575
+set osd_rssi_alarm = 100
+set osd_cap_alarm = 256
+set osd_alt_alarm = 0
+set osd_vbat_pos = 2434
+set osd_rssi_pos = 2383
+set osd_link_quality_pos = 2413
+set osd_tim_1_pos = 276
+set osd_throttle_pos = 2392
+set osd_crosshairs_pos = 2285
+set osd_current_pos = 2401
+set osd_mah_drawn_pos = 2423
+set osd_pilot_name_pos = 2443
+set osd_gps_speed_pos = 2105
+set osd_gps_sats_pos = 2145
+set osd_home_dir_pos = 2372
+set osd_home_dist_pos = 2081
+set osd_flight_dist_pos = 2113
+set osd_altitude_pos = 2134
+set osd_warnings_pos = 2089
+set osd_avg_cell_voltage_pos = 2455
+set osd_core_temp_pos = 374
+set osd_stat_bitmask = 6698986
+set osd_gps_sats_show_hdop = ON
+set osd_canvas_width = 30
+set osd_canvas_height = 13
+set debug_mode = GYRO_SCALED
+set vtx_band = 5
+set vtx_channel = 7
+set vtx_power = 2
+set vtx_freq = 5880
+set vcd_video_system = NTSC
+set gyro_1_sensor_align = CW180
+set gyro_1_align_yaw = 1800
+set gyro_2_spibus = 1
+set craft_name = Glide 5"
+set pilot_name = High/Calm
+
+profile 0
+
+# profile 0
+set profile_name = Glide 5"
+set dterm_lpf1_dyn_min_hz = 86
+set dterm_lpf1_dyn_max_hz = 172
+set dterm_lpf1_static_hz = 86
+set dterm_lpf2_static_hz = 172
+set anti_gravity_gain = 35
+set p_pitch = 49
+set i_pitch = 87
+set d_pitch = 33
+set f_pitch = 112
+set p_roll = 47
+set i_roll = 83
+set d_roll = 28
+set f_roll = 108
+set p_yaw = 47
+set i_yaw = 83
+set f_yaw = 108
+set d_min_roll = 28
+set d_min_pitch = 33
+set simplified_master_multiplier = 95
+set simplified_pi_gain = 110
+set simplified_dmax_gain = 0
+set simplified_feedforward_gain = 95
+set simplified_pitch_d_gain = 105
+set simplified_dterm_filter_multiplier = 115
+set tpa_rate = 50
+set tpa_breakpoint = 1400
+
+profile 1
+
+# profile 1
+set profile_name = Glide 5"
+set dterm_lpf1_dyn_min_hz = 86
+set dterm_lpf1_dyn_max_hz = 172
+set dterm_lpf1_static_hz = 86
+set dterm_lpf2_static_hz = 172
+set anti_gravity_gain = 36
+set p_pitch = 51
+set i_pitch = 87
+set d_pitch = 35
+set f_pitch = 87
+set p_roll = 49
+set i_roll = 83
+set d_roll = 30
+set f_roll = 84
+set p_yaw = 49
+set i_yaw = 83
+set f_yaw = 84
+set d_min_roll = 23
+set d_min_pitch = 27
+set simplified_i_gain = 95
+set simplified_d_gain = 80
+set simplified_pi_gain = 110
+set simplified_dmax_gain = 85
+set simplified_feedforward_gain = 70
+set simplified_dterm_filter_multiplier = 115
+set tpa_rate = 50
+set tpa_breakpoint = 1450
+
+profile 2
+
+# profile 2
+set profile_name = Glide 5"
+set dterm_lpf1_dyn_min_hz = 0
+set dterm_lpf1_dyn_max_hz = 0
+set dterm_lpf1_dyn_expo = 0
+set dterm_lpf1_static_hz = 90
+set dterm_lpf2_static_hz = 180
+set anti_gravity_gain = 120
+set p_pitch = 54
+set i_pitch = 87
+set d_pitch = 32
+set f_pitch = 118
+set p_roll = 49
+set i_roll = 79
+set d_roll = 30
+set f_roll = 108
+set p_yaw = 49
+set i_yaw = 79
+set f_yaw = 108
+set d_min_pitch = 32
+set feedforward_transition = 30
+set simplified_i_gain = 90
+set simplified_pi_gain = 110
+set simplified_dmax_gain = 0
+set simplified_feedforward_gain = 90
+set simplified_pitch_d_gain = 95
+set simplified_pitch_pi_gain = 105
+set simplified_dterm_filter_multiplier = 120
+
+profile 3
+
+# profile 3
+set profile_name = Glide 5"
+set anti_gravity_gain = 38
+set p_pitch = 56
+set i_pitch = 96
+set d_pitch = 35
+set f_pitch = 96
+set p_roll = 49
+set i_roll = 83
+set d_roll = 30
+set f_roll = 84
+set p_yaw = 49
+set i_yaw = 83
+set f_yaw = 84
+set d_min_roll = 23
+set d_min_pitch = 27
+set simplified_i_gain = 95
+set simplified_d_gain = 80
+set simplified_pi_gain = 110
+set simplified_dmax_gain = 85
+set simplified_feedforward_gain = 70
+set simplified_pitch_pi_gain = 110
+set tpa_rate = 50
+set tpa_breakpoint = 1470
+
+# restore original profile selection
+profile 0
+
+rateprofile 0
+
+# rateprofile 0
+set rateprofile_name = Glide 5"
+set thr_mid = 25
+set thr_expo = 65
+set roll_rc_rate = 18
+set pitch_rc_rate = 18
+set yaw_rc_rate = 18
+set roll_expo = 71
+set pitch_expo = 70
+set yaw_expo = 69
+set roll_srate = 68
+set pitch_srate = 68
+set yaw_srate = 64
+set throttle_limit_type = SCALE
+
+rateprofile 1
+
+# rateprofile 1
+set thr_mid = 40
+set thr_expo = 50
+set roll_rc_rate = 103
+set pitch_rc_rate = 103
+set yaw_rc_rate = 103
+set roll_expo = 3
+set pitch_expo = 3
+set yaw_expo = 3
+set roll_srate = 64
+set pitch_srate = 63
+set yaw_srate = 64
+set throttle_limit_percent = 98
+
+rateprofile 2
+
+rateprofile 3
+
+# restore original rateprofile selection
+rateprofile 0
+
+# save configuration
