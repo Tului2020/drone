@@ -86,7 +86,7 @@ impl UdpServer {
                         // Send an ACK response
                         match socket.send(b"ACK").await {
                             Ok(_) => debug!("ACK sent"),
-                            Err(e) => warn!("Failed to send ACK: {e}"),
+                            Err(e) => debug!("Failed to send ACK: {e}"),
                         }
                     } else {
                         warn!("Received invalid message: {raw_string}");
