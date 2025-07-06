@@ -2,7 +2,7 @@
 use std::fmt::Display;
 
 use serde::Deserialize;
-use tracing::debug;
+use tracing::info;
 
 /// Struct to hold the RC controls values
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -37,7 +37,7 @@ impl RcControls {
 
     /// Update the RcControls struct with another RcControls struct
     pub fn update(&mut self, other: &RcControls) {
-        debug!("{other}");
+        info!("{other}");
         self.roll = other.roll;
         self.pitch = other.pitch;
         self.yaw = other.yaw;
@@ -51,7 +51,7 @@ impl RcControls {
     /// Resets the RcControls struct to default values
     pub fn reset(&mut self) {
         *self = RcControls::default();
-        debug!("RcControls reset to default");
+        info!("RcControls reset to default");
     }
 
     /// Converts the RcControls struct to a byte array for CRSF communication
