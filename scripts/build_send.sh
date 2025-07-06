@@ -6,4 +6,4 @@
 cross build --target armv7-unknown-linux-gnueabihf --release --no-default-features --features raspi && scp ./target/armv7-unknown-linux-gnueabihf/release/drone drone@drone.local:/home/drone
 
 # build for pi os 64-bit
-# cross build --target=aarch64-unknown-linux-gnu --release --no-default-features --features raspi && sudo scp ./target/aarch64-unknown-linux-gnu/release/drone
+# cross build --target=aarch64-unknown-linux-gnu --release --no-default-features --features raspi && scp ./target/aarch64-unknown-linux-gnu/release/drone drone@drone.local:/home/drone
