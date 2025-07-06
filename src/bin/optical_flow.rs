@@ -49,6 +49,4 @@ fn main() -> anyhow::Result<()> {
         let elapsed = beginning_timestamp.elapsed();
         println!("Elapsed time: {:.2?}", elapsed);
     }
-
-    Ok(())
 }
