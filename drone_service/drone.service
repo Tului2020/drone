@@ -1,0 +1,12 @@
+[Unit]
+Description=Drone UDP Server
+After=network.target
+
+[Service]
+ExecStart=/home/drone/drone
+WorkingDirectory=/home/drone
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
