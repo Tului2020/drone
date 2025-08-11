@@ -1,0 +1,13 @@
+[Unit]
+Description=Libcamera video stream on port tcp://drone.local:2222
+After=network.target
+
+[Service]
+Type=simple
+User=drone
+ExecStart=/bin/sh -lc 'exec libcamera-vid -t 0 --inline -o - | nc -lk -p 2222'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
