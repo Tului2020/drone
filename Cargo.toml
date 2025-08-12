@@ -48,12 +48,13 @@ raspi-development = ["udp_server"]
 # development environment for control server, does not contain serialport
 control_server_development = ["control_server"]
 
-
+# This is used to send a drone command from the control server
 [[bin]]
 name = "control_server"
 path = "src/bin/control_server.rs"
-required-features = ["control_server"]
+required-features = ["control_server", "dualsense"]
 
+# This is used for testing dualsense alone
 [[bin]]
 name = "dualsense"
 path = "src/bin/dualsense.rs"

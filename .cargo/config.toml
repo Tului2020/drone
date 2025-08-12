@@ -1,0 +1,2 @@
+[alias]
+run-control-server = "run --bin control_server --features control_server,dualsense"
