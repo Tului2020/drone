@@ -44,3 +44,9 @@ Installation Steps
     ```bash
     sudo journalctl -fu drone.service
     ```
+
+**SETUP Camera**
+```bash
+sudo apt update
+sudo apt install -y libcamera-apps libcamera0.6
+```

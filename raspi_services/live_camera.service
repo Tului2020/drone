@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=drone
-ExecStart=/bin/sh -lc 'exec libcamera-vid -t 0 --inline -o - | nc -lk -p 2222'
+ExecStart=/bin/sh -lc 'exec rpicam-vid -t 0 --inline -o - | nc -lk -p 2222'
 Restart=always
 RestartSec=2
 
