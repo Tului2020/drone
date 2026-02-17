@@ -44,7 +44,8 @@ impl UdpServer {
                         let temp_last_heartbeat_timestamp =
                             { *last_heartbeat_timestamp.lock().unwrap() };
 
-                        if get_time_ms() - temp_last_heartbeat_timestamp > heartbeat_interval_ms {
+                        if get_time_ms() - temp_last_heartbeat_timestamp > heartbeat_interval_ms * 3
+                        {
                             let mut rc_controls = rc_controls_clone.lock().unwrap();
                             rc_controls.reset();
                         }
