@@ -59,11 +59,35 @@ impl FcComms {
             let baud_rate = app_data.fc_baud_rate();
 
             thread_spawn(move || {
-                let mut port = match Self::open_port(&port_name, baud_rate) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        error!("Initial open failed: {e}");
-                        return;
+                // Initial connection with retry and timeout
+                let mut port = {
+                    let start_time = std::time::Instant::now();
+                    let timeout_duration = Duration::from_secs(30); // 30 second timeout
+
+                    loop {
+                        if !running.load(Ordering::SeqCst) {
+                            debug!("Stopping RC data thread during initial connection");
+                            return;
+                        }
+
+                        if start_time.elapsed() > timeout_duration {
+                            error!(
+                                "Initial connection timeout after {} seconds",
+                                timeout_duration.as_secs()
+                            );
+                            return;
+                        }
+
+                        match Self::open_port(&port_name, baud_rate) {
+                            Ok(p) => {
+                                info!("Initial connection successful to {port_name}");
+                                break p;
+                            }
+                            Err(e) => {
+                                error!("Initial connection attempt failed: {e}. Retrying in 2 seconds...");
+                                sleep(Duration::from_millis(2000));
+                            }
+                        }
                     }
                 };
 
@@ -91,6 +115,8 @@ impl FcComms {
 
                             // ---------- reconnect loop ----------
                             loop {
+                                debug!("Attempting to reconnect to FC on {port_name} at {baud_rate} baud");
+
                                 if !running.load(Ordering::SeqCst) {
                                     debug!("Stopping RC data thread while reconnecting");
                                     return;

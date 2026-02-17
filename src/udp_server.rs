@@ -27,9 +27,37 @@ impl UdpServer {
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
         rt.block_on(async {
-            // async code here
-            let socket = UdpSocket::bind("0.0.0.0:8080").await.unwrap();
-            info!("UDP server listening on 0.0.0.0:8080");
+            // Initial socket binding with retry logic
+            let socket = {
+                let start_time = std::time::Instant::now();
+                let timeout_duration = Duration::from_secs(30);
+
+                loop {
+                    if !running.load(Ordering::SeqCst) {
+                        debug!("Stopping UDP server during initial binding");
+                        return;
+                    }
+
+                    if start_time.elapsed() > timeout_duration {
+                        warn!(
+                            "UDP socket binding timeout after {} seconds",
+                            timeout_duration.as_secs()
+                        );
+                        return;
+                    }
+
+                    match UdpSocket::bind("0.0.0.0:8080").await {
+                        Ok(s) => {
+                            info!("UDP server listening on 0.0.0.0:8080");
+                            break s;
+                        }
+                        Err(e) => {
+                            warn!("UDP socket binding failed: {e}. Retrying in 2 seconds...");
+                            sleep(Duration::from_millis(2000)).await;
+                        }
+                    }
+                }
+            };
 
             let mut tasks = vec![];
 
@@ -59,40 +87,80 @@ impl UdpServer {
                 last_heartbeat_timestamp_clone
             };
 
-            // Listens for incoming UDP packets and processes them
+            // Listens for incoming UDP packets and processes them with reconnect logic
             let rc_controls_clone = rc_controls.clone();
+            let running_clone = running.clone();
             let listener_task = tokio::spawn(async move {
+                let mut socket = socket;
                 let mut buf = [0u8; 1024];
+
                 loop {
-                    let (len, _) = socket.recv_from(&mut buf).await.unwrap();
-                    let raw_string = std::str::from_utf8(&buf[..len]).unwrap();
+                    if !running_clone.load(Ordering::SeqCst) {
+                        debug!("Stopping UDP listener");
+                        break;
+                    }
 
-                    if let Ok(decoded_message) = serde_json::from_str::<Message>(raw_string) {
-                        // Decode the message and process it
-                        match decoded_message {
-                            Message::SetRc(incoming_rc_controls) => {
-                                rc_controls_clone
-                                    .lock()
-                                    .unwrap()
-                                    .update(&incoming_rc_controls);
-                            }
-                            Message::Heartbeat => {
-                                debug!("Received heartbeat");
-                                let mut temp_last_heartbeat_timestamp =
-                                    last_heartbeat_timestamp.lock().unwrap();
-                                *temp_last_heartbeat_timestamp = get_time_ms();
+                    match socket.recv_from(&mut buf).await {
+                        Ok((len, addr)) => {
+                            // Parse the received message
+                            match std::str::from_utf8(&buf[..len]) {
+                                Ok(raw_string) => {
+                                    if let Ok(decoded_message) =
+                                        serde_json::from_str::<Message>(raw_string)
+                                    {
+                                        // Decode the message and process it
+                                        match decoded_message {
+                                            Message::SetRc(incoming_rc_controls) => {
+                                                rc_controls_clone
+                                                    .lock()
+                                                    .unwrap()
+                                                    .update(&incoming_rc_controls);
+                                            }
+                                            Message::Heartbeat => {
+                                                debug!("Received heartbeat");
+                                                let mut temp_last_heartbeat_timestamp =
+                                                    last_heartbeat_timestamp.lock().unwrap();
+                                                *temp_last_heartbeat_timestamp = get_time_ms();
+                                            }
+                                        }
+
+                                        // Send an ACK response
+                                        if let Err(e) = socket.send_to(b"ACK", addr).await {
+                                            warn!("Failed to send ACK: {e}");
+                                        }
+                                    } else {
+                                        warn!("Received invalid message: {raw_string}");
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!("Received invalid UTF-8 data: {e}");
+                                }
                             }
                         }
+                        Err(e) => {
+                            warn!("UDP socket error: {e}. Attempting to reconnect...");
 
-                        // Send an ACK response
-                        match socket.send(b"ACK").await {
-                            Ok(_) => debug!("ACK sent"),
-                            Err(e) => debug!("Failed to send ACK: {e}"),
+                            // Reconnection loop
+                            loop {
+                                if !running_clone.load(Ordering::SeqCst) {
+                                    debug!("Stopping UDP server during reconnection");
+                                    return;
+                                }
+
+                                match UdpSocket::bind("0.0.0.0:8080").await {
+                                    Ok(new_socket) => {
+                                        info!("UDP socket reconnected successfully");
+                                        socket = new_socket;
+                                        break; // Resume main loop
+                                    }
+                                    Err(err) => {
+                                        warn!("UDP reconnect attempt failed: {err}");
+                                        sleep(Duration::from_millis(2000)).await;
+                                    }
+                                }
+                            }
                         }
-                    } else {
-                        warn!("Received invalid message: {raw_string}");
-                        continue;
-                    };
+                    }
                 }
             });
             tasks.push(listener_task);
