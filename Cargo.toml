@@ -47,7 +47,8 @@ raspi-development = ["udp_server"]
 # development environment for control server, does not contain serialport
 control_server_development = ["control_server"]
 
-# Runs on the Raspberry Pi: receives RC commands over UDP and drives the FC over CRSF
+# Runs on the Raspberry Pi: receives RC commands over UDP, drives the FC over CRSF
+# and streams FC telemetry back to the control server.
 [[bin]]
 name = "raspi"
 path = "src/bin/raspi.rs"

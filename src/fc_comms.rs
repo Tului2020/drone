@@ -2,6 +2,8 @@
 pub mod crsf;
 pub mod msp;
 mod rc_controls;
+#[cfg(not(feature = "real"))]
+mod simulator;
 pub mod telemetry;
 
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
@@ -19,7 +21,7 @@ use tracing::debug;
 use tracing::{error, info};
 
 #[cfg(feature = "udp_server")]
-use crate::udp_server::UdpServer;
+use crate::udp_server::{TelemetryStream, UdpServer};
 use crate::{app_data::DroneAppData, DroneResult};
 
 #[cfg(feature = "real")]
@@ -52,8 +54,28 @@ impl FcComms {
         {
             let heatbeat_interval_ms = app_data.heartbeat_interval_ms();
             let (rc_controls_clone, running_clone) = (rc_controls.clone(), running.clone());
+            let telemetry_stream = TelemetryStream {
+                telemetry: telemetry.clone(),
+                port: app_data.telemetry_port(),
+                interval_ms: app_data.telemetry_interval_ms(),
+            };
             thread_spawn(move || {
-                UdpServer::new(rc_controls_clone, running_clone, heatbeat_interval_ms)
+                UdpServer::new(
+                    rc_controls_clone,
+                    running_clone,
+                    heatbeat_interval_ms,
+                    telemetry_stream,
+                )
+            });
+        }
+
+        #[cfg(not(feature = "real"))]
+        // No FC attached: simulate telemetry so the rest of the pipeline can be developed locally
+        {
+            let (rc_controls_clone, telemetry_clone, running_clone) =
+                (rc_controls.clone(), telemetry.clone(), running.clone());
+            std::thread::spawn(move || {
+                simulator::run(rc_controls_clone, telemetry_clone, running_clone)
             });
         }
 

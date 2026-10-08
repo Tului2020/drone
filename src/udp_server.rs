@@ -1,5 +1,6 @@
 //! Remote server using UDP
 use std::{
+    net::IpAddr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -12,17 +13,37 @@ use tokio::{net::UdpSocket, runtime::Builder, time::sleep};
 use tracing::{debug, info, warn};
 
 use crate::get_time_ms;
-use crate::{fc_comms::RcControls, messages::Message};
+use crate::{
+    fc_comms::{RcControls, Telemetry},
+    messages::Message,
+};
+
+/// Stop sending telemetry if the control server has been silent for this long
+const CONTROL_SERVER_TIMEOUT_MS: u128 = 5_000;
 
 /// Remote server using UDP
 pub struct UdpServer;
 
+/// Telemetry streaming settings
+pub struct TelemetryStream {
+    /// Latest telemetry from the FC
+    pub telemetry: Arc<Mutex<Telemetry>>,
+    /// UDP port the control server listens on for telemetry
+    pub port: u16,
+    /// Send interval in milliseconds
+    pub interval_ms: u64,
+}
+
 impl UdpServer {
     /// Create a new instance of the remote server
+    ///
+    /// Telemetry is sent to the IP of whoever last sent us a valid message (the control server),
+    /// so the drone does not need to know the ground station's address.
     pub fn new(
         rc_controls: Arc<Mutex<RcControls>>,
         running: Arc<AtomicBool>,
         heartbeat_interval_ms: u128,
+        telemetry_stream: TelemetryStream,
     ) -> Self {
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
@@ -60,6 +81,56 @@ impl UdpServer {
             };
 
             let mut tasks = vec![];
+
+            // IP of the control server and when we last heard from it
+            let control_server: Arc<Mutex<Option<(IpAddr, u128)>>> = Arc::new(Mutex::new(None));
+
+            // Streams the latest telemetry to the control server
+            {
+                let control_server = control_server.clone();
+                let rc_controls = rc_controls.clone();
+                let running = running.clone();
+                let TelemetryStream {
+                    telemetry,
+                    port,
+                    interval_ms,
+                } = telemetry_stream;
+
+                tasks.push(tokio::spawn(async move {
+                    let socket = match UdpSocket::bind("0.0.0.0:0").await {
+                        Ok(s) => s,
+                        Err(e) => {
+                            warn!("Failed to bind telemetry socket: {e}");
+                            return;
+                        }
+                    };
+
+                    while running.load(Ordering::SeqCst) {
+                        sleep(Duration::from_millis(interval_ms)).await;
+
+                        let Some((ip, last_seen_ms)) = *control_server.lock().unwrap() else {
+                            continue;
+                        };
+                        if get_time_ms() - last_seen_ms > CONTROL_SERVER_TIMEOUT_MS {
+                            continue;
+                        }
+
+                        let snapshot = {
+                            let mut snapshot = telemetry.lock().unwrap().clone();
+                            snapshot.rc_sent = Some(*rc_controls.lock().unwrap());
+                            snapshot
+                        };
+                        match serde_json::to_vec(&snapshot) {
+                            Ok(bytes) => {
+                                if let Err(e) = socket.send_to(&bytes, (ip, port)).await {
+                                    debug!("Failed to send telemetry to {ip}:{port}: {e}");
+                                }
+                            }
+                            Err(e) => warn!("Failed to serialize telemetry: {e}"),
+                        }
+                    }
+                }));
+            }
 
             // Checks heartbeat every heartbeat_interval_ms milliseconds and resets the RC controls if no heartbeat is received
             let last_heartbeat_timestamp = {
@@ -108,6 +179,9 @@ impl UdpServer {
                                     if let Ok(decoded_message) =
                                         serde_json::from_str::<Message>(raw_string)
                                     {
+                                        *control_server.lock().unwrap() =
+                                            Some((addr.ip(), get_time_ms()));
+
                                         // Decode the message and process it
                                         match decoded_message {
                                             Message::SetRc(incoming_rc_controls) => {

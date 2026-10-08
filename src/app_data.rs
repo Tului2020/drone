@@ -23,6 +23,20 @@ pub struct DroneAppData {
     udp_server_addr: String,
     /// Heartbeat interval in milliseconds
     heartbeat_interval_ms: u128,
+    /// UDP port the control server listens on for telemetry from the drone
+    #[serde(default = "default_telemetry_port")]
+    telemetry_port: u16,
+    /// How often the drone sends telemetry to the control server, in milliseconds
+    #[serde(default = "default_telemetry_interval_ms")]
+    telemetry_interval_ms: u64,
+}
+
+fn default_telemetry_port() -> u16 {
+    8081
+}
+
+fn default_telemetry_interval_ms() -> u64 {
+    100
 }
 
 impl DroneAppData {
@@ -38,6 +52,8 @@ impl DroneAppData {
         control_server_address: String,
         udp_server_addr: String,
         heartbeat_interval_ms: u128,
+        telemetry_port: u16,
+        telemetry_interval_ms: u64,
     ) -> Self {
         Self {
             log_level,
@@ -46,6 +62,8 @@ impl DroneAppData {
             control_server_address,
             udp_server_addr,
             heartbeat_interval_ms,
+            telemetry_port,
+            telemetry_interval_ms,
         }
     }
 
@@ -79,6 +97,16 @@ impl DroneAppData {
         self.heartbeat_interval_ms
     }
 
+    /// Returns the UDP port the control server listens on for telemetry.
+    pub fn telemetry_port(&self) -> u16 {
+        self.telemetry_port
+    }
+
+    /// Returns how often the drone sends telemetry, in milliseconds.
+    pub fn telemetry_interval_ms(&self) -> u64 {
+        self.telemetry_interval_ms
+    }
+
     /// Loads the configuration from a JSON file.
     pub fn load_from_file(file_path: &str) -> Self {
         let file = std::fs::File::open(file_path).expect("Unable to open config file");
@@ -96,6 +124,8 @@ impl Default for DroneAppData {
             control_server_address: "127.0.0.1:8080".to_string(),
             udp_server_addr: "0.0.0.0:8080".to_string(),
             heartbeat_interval_ms: 1000,
+            telemetry_port: default_telemetry_port(),
+            telemetry_interval_ms: default_telemetry_interval_ms(),
         }
     }
 }
