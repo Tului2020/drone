@@ -37,7 +37,6 @@ impl RcControls {
 
     /// Update the RcControls struct with another RcControls struct
     pub fn update(&mut self, other: &RcControls) {
-        info!("{other}");
         self.roll = other.roll;
         self.pitch = other.pitch;
         self.yaw = other.yaw;
