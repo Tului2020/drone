@@ -22,7 +22,7 @@ const CONTROLLER_SETTINGS_FILE: &str = "controller_settings.json";
 
 use crate::{
     app_data::DroneAppData, fc_comms::RcControls, get_time_ms, logger::init_logger,
-    messages::Message, DroneResult,
+    messages::Message, DroneResult, HEARTBEAT_INTERVAL_MS,
 };
 
 /// Control server module.
@@ -31,8 +31,6 @@ pub struct ControlServer {
     udp_server_addr: String,
     /// Address of the control server.
     addr: String,
-    /// Heartbeat interval in milliseconds (optional, only if feature is enabled).
-    heartbeat_interval_ms: u64,
     /// UDP port to receive telemetry from the drone on.
     telemetry_port: u16,
     /// Where controller sensitivity settings are saved.
@@ -61,7 +59,6 @@ impl ControlServer {
         Ok(ControlServer {
             udp_server_addr: app_data.udp_server_addr().to_string(),
             addr: app_data.control_server_address().to_string(),
-            heartbeat_interval_ms: app_data.heartbeat_interval_ms() as u64,
             telemetry_port: app_data.telemetry_port(),
             controller_settings_path: Self::controller_settings_path(app_data_file_path),
         })
@@ -82,7 +79,6 @@ impl ControlServer {
 
         // Spawn the loop before server starts
         let heartbeat_task: tokio::task::JoinHandle<DroneResult> = {
-            let heartbeat_interval_ms = self.heartbeat_interval_ms;
             let udp_client_heartbeat_task = udp_client.clone();
             tokio::spawn(async move {
                 let mut backoff_multiplier = 1;
@@ -97,7 +93,7 @@ impl ControlServer {
                     }
 
                     tokio::time::sleep(std::time::Duration::from_millis(
-                        heartbeat_interval_ms * backoff_multiplier,
+                        HEARTBEAT_INTERVAL_MS * backoff_multiplier,
                     ))
                     .await;
                 }

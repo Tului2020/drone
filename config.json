@@ -2,7 +2,6 @@
     "log_level": "INFO",
     "fc_baud_rate": 420000,
     "fc_port_name": "/dev/ttyS0",
-    "heartbeat_interval_ms": 50,
     "control_server_address": "0.0.0.0:8080",
     "udp_server_addr": "tului-drone.local:8080",
     "telemetry_port": 8081,

@@ -54,7 +54,6 @@ impl FcComms {
         #[cfg(feature = "udp_server")]
         // Create a UDP server that listens for RC data and sets the "rc_controls"
         {
-            let heatbeat_interval_ms = app_data.heartbeat_interval_ms();
             let (rc_controls_clone, running_clone) = (rc_controls.clone(), running.clone());
             let telemetry_stream = TelemetryStream {
                 telemetry: telemetry.clone(),
@@ -66,7 +65,6 @@ impl FcComms {
                 UdpServer::new(
                     rc_controls_clone,
                     running_clone,
-                    heatbeat_interval_ms,
                     telemetry_stream,
                     reboot_requested_clone,
                 )

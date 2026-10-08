@@ -13,6 +13,12 @@ pub mod messages;
 #[cfg(feature = "udp_server")]
 pub mod udp_server;
 
+/// How often the control server sends a heartbeat to the drone, in milliseconds.
+///
+/// Hardcoded (not configurable) so the control server and the drone always agree on it.
+/// The drone resets the RC controls after 3 intervals without a heartbeat.
+pub const HEARTBEAT_INTERVAL_MS: u64 = 100;
+
 /// A type alias for the result of a Conductor operation.
 pub type DroneResult<T = ()> = std::result::Result<T, error::DroneError>;
 

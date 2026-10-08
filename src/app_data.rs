@@ -21,8 +21,6 @@ pub struct DroneAppData {
     control_server_address: String,
     /// UDP server address
     udp_server_addr: String,
-    /// Heartbeat interval in milliseconds
-    heartbeat_interval_ms: u128,
     /// UDP port the control server listens on for telemetry from the drone
     #[serde(default = "default_telemetry_port")]
     telemetry_port: u16,
@@ -51,7 +49,6 @@ impl DroneAppData {
         fc_baud_rate: u32,
         control_server_address: String,
         udp_server_addr: String,
-        heartbeat_interval_ms: u128,
         telemetry_port: u16,
         telemetry_interval_ms: u64,
     ) -> Self {
@@ -61,7 +58,6 @@ impl DroneAppData {
             fc_baud_rate,
             control_server_address,
             udp_server_addr,
-            heartbeat_interval_ms,
             telemetry_port,
             telemetry_interval_ms,
         }
@@ -92,11 +88,6 @@ impl DroneAppData {
         &self.udp_server_addr
     }
 
-    /// Returns the heartbeat interval in milliseconds.
-    pub fn heartbeat_interval_ms(&self) -> u128 {
-        self.heartbeat_interval_ms
-    }
-
     /// Returns the UDP port the control server listens on for telemetry.
     pub fn telemetry_port(&self) -> u16 {
         self.telemetry_port
@@ -123,7 +114,6 @@ impl Default for DroneAppData {
             fc_baud_rate: 420_000,
             control_server_address: "127.0.0.1:8080".to_string(),
             udp_server_addr: "0.0.0.0:8080".to_string(),
-            heartbeat_interval_ms: 1000,
             telemetry_port: default_telemetry_port(),
             telemetry_interval_ms: default_telemetry_interval_ms(),
         }

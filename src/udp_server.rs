@@ -12,11 +12,11 @@ use futures::future::join_all;
 use tokio::{net::UdpSocket, runtime::Builder, time::sleep};
 use tracing::{debug, info, warn};
 
-use crate::get_time_ms;
 use crate::{
     fc_comms::{RcControls, Telemetry},
     messages::Message,
 };
+use crate::{get_time_ms, HEARTBEAT_INTERVAL_MS};
 
 /// Stop sending telemetry if the control server has been silent for this long
 const CONTROL_SERVER_TIMEOUT_MS: u128 = 5_000;
@@ -42,7 +42,6 @@ impl UdpServer {
     pub fn new(
         rc_controls: Arc<Mutex<RcControls>>,
         running: Arc<AtomicBool>,
-        heartbeat_interval_ms: u128,
         telemetry_stream: TelemetryStream,
         reboot_requested: Arc<AtomicBool>,
     ) -> Self {
@@ -133,7 +132,7 @@ impl UdpServer {
                 }));
             }
 
-            // Checks heartbeat every heartbeat_interval_ms milliseconds and resets the RC controls if no heartbeat is received
+            // Checks heartbeat every HEARTBEAT_INTERVAL_MS milliseconds and resets the RC controls if no heartbeat is received
             let last_heartbeat_timestamp = {
                 let last_heartbeat_timestamp = Arc::new(Mutex::new(get_time_ms()));
                 let last_heartbeat_timestamp_clone = last_heartbeat_timestamp.clone();
@@ -144,13 +143,14 @@ impl UdpServer {
                         let temp_last_heartbeat_timestamp =
                             { *last_heartbeat_timestamp.lock().unwrap() };
 
-                        if get_time_ms() - temp_last_heartbeat_timestamp > heartbeat_interval_ms * 3
+                        if get_time_ms() - temp_last_heartbeat_timestamp
+                            > HEARTBEAT_INTERVAL_MS as u128 * 3
                         {
                             let mut rc_controls = rc_controls_clone.lock().unwrap();
                             rc_controls.reset();
                         }
 
-                        sleep(Duration::from_millis(heartbeat_interval_ms as u64)).await
+                        sleep(Duration::from_millis(HEARTBEAT_INTERVAL_MS)).await
                     }
                 });
 
