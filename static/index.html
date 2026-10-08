@@ -28,11 +28,13 @@
                 <div class="hero"><span id="power-w">–</span><span class="unit">W</span></div>
                 <div class="tiles">
                     <div class="tile"><div class="label">Voltage</div><div class="value"><span id="voltage">–</span> V</div></div>
+                    <div class="tile"><div class="label">Per cell <span id="cell-count"></span></div><div class="value"><span id="cell-voltage">–</span> V</div></div>
                     <div class="tile"><div class="label">Current</div><div class="value"><span id="current">–</span> A</div></div>
                     <div class="tile"><div class="label">Used</div><div class="value"><span id="used-mah">–</span> mAh</div></div>
                     <div class="tile"><div class="label">Battery</div><div class="value"><span id="battery-pct">–</span> %</div></div>
                 </div>
                 <div class="meter" id="battery-meter" data-status="good"><div class="fill"></div></div>
+                <ul class="status-list battery-status"><li id="battery-state" class="muted">Battery state: –</li></ul>
                 <div class="spark-wrap">
                     <div class="spark-label" id="power-spark-label">Power, last 60 s</div>
                     <svg id="power-spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
@@ -48,6 +50,16 @@
                     <div class="tile"><div class="label">Roll</div><div class="value"><span id="roll">–</span>°</div></div>
                     <div class="tile"><div class="label">Yaw</div><div class="value"><span id="yaw">–</span>°</div></div>
                 </div>
+            </article>
+
+            <article class="card">
+                <h2>Flight mode</h2>
+                <div class="mode-label" id="mode-label">–</div>
+                <p class="muted small">Betaflight code: <span id="mode-code">–</span></p>
+                <h2 class="sub">Active modes</h2>
+                <ul id="active-modes" class="status-list"><li class="muted">No mode data (MSP)</li></ul>
+                <h2 class="sub">Ground station</h2>
+                <p class="small" id="gs-mode">–</p>
             </article>
 
             <article class="card">
@@ -82,6 +94,10 @@
                 <h2 class="sub">Arming</h2>
                 <ul id="arming" class="status-list"><li class="muted">No status (MSP)</li></ul>
                 <p class="muted small">Sensors: <span id="sensors">–</span></p>
+                <div class="reboot">
+                    <button id="reboot-fc" type="button" disabled>Reboot FC</button>
+                    <span id="reboot-status" class="muted small"></span>
+                </div>
             </article>
 
             <article class="card">

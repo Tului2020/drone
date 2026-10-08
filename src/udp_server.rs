@@ -44,6 +44,7 @@ impl UdpServer {
         running: Arc<AtomicBool>,
         heartbeat_interval_ms: u128,
         telemetry_stream: TelemetryStream,
+        reboot_requested: Arc<AtomicBool>,
     ) -> Self {
         let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
@@ -189,6 +190,10 @@ impl UdpServer {
                                                     .lock()
                                                     .unwrap()
                                                     .update(&incoming_rc_controls);
+                                            }
+                                            Message::RebootFc => {
+                                                info!("FC reboot requested by {addr}");
+                                                reboot_requested.store(true, Ordering::SeqCst);
                                             }
                                             Message::Heartbeat => {
                                                 debug!("Received heartbeat");

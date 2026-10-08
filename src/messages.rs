@@ -10,6 +10,8 @@ pub enum Message {
     SetRc(RcControls),
     /// Heartbeat message
     Heartbeat,
+    /// Reboot the flight controller (the drone refuses unless the FC is disarmed)
+    RebootFc,
 }
 
 impl Serialize for Message {
@@ -23,6 +25,7 @@ impl Serialize for Message {
                 serializer.serialize_str(&rc_str)
             }
             Message::Heartbeat => serializer.serialize_str("heartbeat"),
+            Message::RebootFc => serializer.serialize_str("reboot_fc"),
         }
     }
 }
@@ -44,6 +47,7 @@ impl<'de> Deserialize<'de> for Message {
                 Ok(Message::SetRc(rc_controls))
             }
             "heartbeat" => Ok(Message::Heartbeat),
+            "reboot_fc" => Ok(Message::RebootFc),
             _ => Err(serde::de::Error::custom("Unknown message type")),
         }
     }

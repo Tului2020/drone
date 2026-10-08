@@ -133,6 +133,7 @@ impl ControlServer {
                         // never shadowed by a stale cached copy
                         .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "no-cache")))
                         .route("/set-rc", web::post().to(Self::set_rc))
+                        .route("/reboot-fc", web::post().to(Self::reboot_fc))
                         .route("/telemetry", web::get().to(Self::get_telemetry))
                         .route("/telemetry/stream", web::get().to(Self::event_stream))
                         .app_data(udp_client_clone.clone())
@@ -234,6 +235,19 @@ impl ControlServer {
         }
     }
 
+    /// Asks the drone to reboot the FC. The drone only does it if the FC reports disarmed;
+    /// the outcome comes back as `fc_reboot` in the telemetry.
+    async fn reboot_fc(udp_client: web::Data<UdpClient>) -> impl Responder {
+        info!("Requesting FC reboot");
+        match udp_client.send_reboot_fc().await {
+            Ok(_) => HttpResponse::Accepted().finish(),
+            Err(e) => {
+                error!("{e}");
+                HttpResponse::InternalServerError().finish()
+            }
+        }
+    }
+
     async fn set_rc(
         rc_controls: web::Json<RcControls>,
         udp_client: web::Data<UdpClient>,
@@ -303,6 +317,13 @@ impl UdpClient {
     /// * `rc_controls` - The RC controls to send.
     pub async fn send_rc(&self, rc_controls: RcControls) -> DroneResult<()> {
         let msg = serde_json::to_string(&Message::SetRc(rc_controls))?;
+
+        self.send(msg.as_bytes()).await
+    }
+
+    /// Asks the drone to reboot the flight controller.
+    pub async fn send_reboot_fc(&self) -> DroneResult<()> {
+        let msg = serde_json::to_string(&Message::RebootFc)?;
 
         self.send(msg.as_bytes()).await
     }

@@ -1,12 +1,23 @@
 //! Telemetry received from the flight controller (FC)
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 
 use super::crsf::{frame_type, CrsfFrame, CrsfParser};
-use super::msp::{self, FcStatus, Imu, MspReassembler, MspResponse};
+use super::msp::{self, BatteryState, FcStatus, Imu, MspReassembler, MspResponse};
 use crate::fc_comms::RcControls;
 
 /// MSP commands polled round-robin
-const MSP_POLL_CMDS: [u8; 3] = [msp::cmd::STATUS_EX, msp::cmd::MOTOR, msp::cmd::RAW_IMU];
+const MSP_POLL_CMDS: [u8; 4] = [
+    msp::cmd::STATUS_EX,
+    msp::cmd::BATTERY_STATE,
+    msp::cmd::MOTOR,
+    msp::cmd::RAW_IMU,
+];
+
+/// FC data older than this is too stale to trust for a reboot safety check
+const REBOOT_MAX_DATA_AGE_MS: u64 = 1_000;
+/// AUX1 below this is the disarm position
+const AUX1_DISARMED_BELOW: u16 = 1_500;
 
 /// Everything we know about the drone. Sections are `None` until the FC reports them.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -27,6 +38,13 @@ pub struct Telemetry {
     pub fc_status: Option<FcStatus>,
     /// Raw IMU (MSP)
     pub imu: Option<Imu>,
+    /// Battery cell count, precise voltage and alert state (MSP)
+    pub battery_state: Option<BatteryState>,
+    /// Outcome of the last FC reboot request
+    pub fc_reboot: Option<FcRebootStatus>,
+    /// Betaflight mode names (MSP_BOXNAMES), used to name the active-mode bits
+    #[serde(skip)]
+    pub box_names: Option<Vec<String>>,
     /// RC channels currently being sent to the FC
     pub rc_sent: Option<RcControls>,
     /// Time (ms since Unix epoch) of the last valid frame from the FC
@@ -35,6 +53,17 @@ pub struct Telemetry {
     pub frames_received: u64,
     /// Number of frames with a bad CRC
     pub crc_errors: u64,
+}
+
+/// Outcome of an FC reboot request
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct FcRebootStatus {
+    /// When the request was handled (ms since Unix epoch)
+    pub at_ms: u64,
+    /// Whether the reboot command was sent to the FC
+    pub accepted: bool,
+    /// What happened, or why it was refused
+    pub message: String,
 }
 
 /// Battery / power
@@ -66,8 +95,11 @@ pub struct Attitude {
 /// Betaflight flight mode
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct FlightModeInfo {
-    /// Mode name, e.g. "ACRO", "ANGL", "HOR"
+    /// Mode code as sent by Betaflight, e.g. "ACRO", "STAB", "HOR", "AIR"
     pub name: String,
+    /// Human readable mode, e.g. "Angle (self-level)"
+    #[serde(default)]
+    pub label: String,
     /// Whether the FC is armed (Betaflight appends `*` to the mode while disarmed)
     pub armed: bool,
 }
@@ -128,8 +160,10 @@ impl Telemetry {
                 let end = p.iter().position(|&b| b == 0).unwrap_or(p.len());
                 let raw = String::from_utf8_lossy(&p[..end]).to_string();
                 let armed = !raw.ends_with('*');
+                let name = raw.trim_end_matches('*').to_string();
                 self.flight_mode = Some(FlightModeInfo {
-                    name: raw.trim_end_matches('*').to_string(),
+                    label: flight_mode_label(&name),
+                    name,
                     armed,
                 });
                 true
@@ -178,8 +212,18 @@ impl Telemetry {
         let handled = match resp.cmd {
             msp::cmd::MOTOR => msp::decode_motors(&resp.data).map(|m| self.motors = Some(m)),
             msp::cmd::RAW_IMU => msp::decode_imu(&resp.data).map(|i| self.imu = Some(i)),
-            msp::cmd::STATUS_EX => {
-                msp::decode_status_ex(&resp.data).map(|s| self.fc_status = Some(s))
+            msp::cmd::BATTERY_STATE => {
+                msp::decode_battery_state(&resp.data).map(|b| self.battery_state = Some(b))
+            }
+            msp::cmd::STATUS_EX => msp::decode_status_ex(&resp.data).map(|mut s| {
+                if let Some(names) = &self.box_names {
+                    s.active_modes = msp::active_modes(names, &s.mode_flags);
+                }
+                self.fc_status = Some(s);
+            }),
+            msp::cmd::BOXNAMES => {
+                let names = msp::decode_box_names(&resp.data);
+                (!names.is_empty()).then(|| self.box_names = Some(names))
             }
             _ => None,
         }
@@ -189,6 +233,53 @@ impl Telemetry {
             self.last_fc_frame_ms = Some(now_ms);
         }
         handled
+    }
+}
+
+impl Telemetry {
+    /// Betaflight reboots on MSP_REBOOT even while armed, so only allow it when the FC itself
+    /// recently reported being disarmed and we are commanding the disarm position on AUX1.
+    pub fn check_reboot_allowed(&self, aux1_sent: u16, now_ms: u64) -> Result<(), String> {
+        match self.last_fc_frame_ms {
+            Some(t) if now_ms.saturating_sub(t) <= REBOOT_MAX_DATA_AGE_MS => {}
+            _ => return Err("no recent data from the FC".into()),
+        }
+        match &self.flight_mode {
+            Some(mode) if !mode.armed => {}
+            Some(_) => return Err("FC reports ARMED".into()),
+            None => return Err("FC arm state unknown".into()),
+        }
+        if aux1_sent >= AUX1_DISARMED_BELOW {
+            return Err(format!(
+                "arm switch (AUX1 = {aux1_sent}) is not in the disarm position"
+            ));
+        }
+        Ok(())
+    }
+
+    /// Runs the reboot safety check and records the outcome in `fc_reboot`.
+    /// Returns `true` if the caller should send MSP_REBOOT now.
+    pub fn process_reboot_request(&mut self, aux1_sent: u16, now_ms: u64) -> bool {
+        let outcome = self.check_reboot_allowed(aux1_sent, now_ms);
+        let accepted = outcome.is_ok();
+        let message = match outcome {
+            Ok(()) => {
+                info!("Rebooting flight controller");
+                // The mode configuration may change across a reboot, fetch it again
+                self.box_names = None;
+                "Reboot command sent".to_string()
+            }
+            Err(reason) => {
+                warn!("Refusing FC reboot: {reason}");
+                format!("Refused: {reason}")
+            }
+        };
+        self.fc_reboot = Some(FcRebootStatus {
+            at_ms: now_ms,
+            accepted,
+            message,
+        });
+        accepted
     }
 }
 
@@ -202,6 +293,9 @@ pub struct TelemetryDecoder {
     tick: u32,
     poll_idx: usize,
     seq: u8,
+    /// Whether the FC's mode names still need to be fetched
+    need_box_names: bool,
+    polls: u32,
 }
 
 impl TelemetryDecoder {
@@ -214,6 +308,8 @@ impl TelemetryDecoder {
             tick: 0,
             poll_idx: 0,
             seq: 0,
+            need_box_names: true,
+            polls: 0,
         }
     }
 
@@ -226,10 +322,23 @@ impl TelemetryDecoder {
         if self.tick != 0 {
             return None;
         }
-        let cmd = MSP_POLL_CMDS[self.poll_idx];
-        self.poll_idx = (self.poll_idx + 1) % MSP_POLL_CMDS.len();
+        self.polls = self.polls.wrapping_add(1);
+        // Fetch the mode names (one-off) in every 8th slot until we have them
+        let cmd = if self.need_box_names && self.polls % 8 == 1 {
+            msp::cmd::BOXNAMES
+        } else {
+            let cmd = MSP_POLL_CMDS[self.poll_idx];
+            self.poll_idx = (self.poll_idx + 1) % MSP_POLL_CMDS.len();
+            cmd
+        };
         self.seq = self.seq.wrapping_add(1);
         Some(msp::build_request(cmd, self.seq))
+    }
+
+    /// Builds an MSP_REBOOT request frame (normal firmware reboot)
+    pub fn reboot_request(&mut self) -> Vec<u8> {
+        self.seq = self.seq.wrapping_add(1);
+        msp::build_request_with_payload(msp::cmd::REBOOT, &[msp::REBOOT_MODE_FIRMWARE], self.seq)
     }
 
     /// Feeds raw serial bytes from the FC and applies everything decoded to `telemetry`
@@ -245,7 +354,28 @@ impl TelemetryDecoder {
             }
         }
         telemetry.crc_errors = self.parser.crc_errors;
+        self.need_box_names = telemetry.box_names.is_none();
     }
+}
+
+/// Human readable name for a Betaflight CRSF flight mode code
+pub fn flight_mode_label(code: &str) -> String {
+    match code {
+        "ACRO" => "Acro",
+        "AIR" => "Acro (air mode)",
+        "STAB" => "Angle (self-level)",
+        "HOR" => "Horizon",
+        "ALTH" | "ALT" => "Altitude hold",
+        "POSH" | "POS" => "Position hold",
+        "RTH" => "GPS rescue",
+        "MANU" => "Manual / passthrough",
+        "!FS!" => "Failsafe",
+        "!ERR" => "Arming disabled",
+        "WAIT" => "Waiting for GPS",
+        "OK" => "OK",
+        other => other,
+    }
+    .to_string()
 }
 
 /// Unpacks CRSF baro altitude: MSB clear -> decimeters offset by 10000, MSB set -> meters
@@ -329,11 +459,14 @@ mod tests {
             t.flight_mode,
             Some(FlightModeInfo {
                 name: "ANGL".into(),
+                label: "ANGL".into(),
                 armed: false
             })
         );
-        t.apply_frame(&frame(frame_type::FLIGHT_MODE, b"ACRO\0".to_vec()), 0);
-        assert!(t.flight_mode.unwrap().armed);
+        t.apply_frame(&frame(frame_type::FLIGHT_MODE, b"STAB\0".to_vec()), 0);
+        let mode = t.flight_mode.unwrap();
+        assert!(mode.armed);
+        assert_eq!(mode.label, "Angle (self-level)");
     }
 
     #[test]
@@ -379,11 +512,16 @@ mod tests {
         use crate::fc_comms::crsf::build_frame;
 
         let mut decoder = TelemetryDecoder::new(2);
+        decoder.need_box_names = false;
         let polls: Vec<_> = (0..6).filter_map(|_| decoder.next_msp_request()).collect();
         let cmds: Vec<u8> = polls.iter().map(|f| f[f.len() - 2]).collect();
         assert_eq!(
             cmds,
-            vec![msp::cmd::STATUS_EX, msp::cmd::MOTOR, msp::cmd::RAW_IMU]
+            vec![
+                msp::cmd::STATUS_EX,
+                msp::cmd::BATTERY_STATE,
+                msp::cmd::MOTOR
+            ]
         );
 
         let mut motors = vec![8, msp::cmd::MOTOR];
@@ -400,6 +538,64 @@ mod tests {
         assert_eq!(t.motors, Some(vec![1100, 1200, 1300, 1400]));
         assert_eq!(t.flight_mode.unwrap().name, "ACRO");
         assert_eq!(t.frames_received, 2);
+    }
+
+    #[test]
+    fn fetches_box_names_first_and_names_active_modes() {
+        use crate::fc_comms::crsf::build_frame;
+
+        let mut decoder = TelemetryDecoder::new(1);
+        let first = decoder.next_msp_request().unwrap();
+        assert_eq!(first[first.len() - 2], msp::cmd::BOXNAMES);
+
+        let msp_resp = |cmd: u8, data: &[u8]| {
+            let mut payload = vec![0xEA, 0xC8, 0x30, data.len() as u8, cmd];
+            payload.extend_from_slice(data);
+            build_frame(frame_type::MSP_RESP, &payload)
+        };
+        let mut t = Telemetry::default();
+        decoder.feed(
+            &msp_resp(msp::cmd::BOXNAMES, b"ARM;ANGLE;AIR MODE;"),
+            &mut t,
+            0,
+        );
+        assert!(!decoder.need_box_names);
+
+        let mut status = vec![0u8; 16];
+        status[6] = 0b110; // ANGLE + AIR MODE
+        decoder.feed(&msp_resp(msp::cmd::STATUS_EX, &status), &mut t, 0);
+        assert_eq!(t.fc_status.unwrap().active_modes, vec!["ANGLE", "AIR MODE"]);
+    }
+
+    #[test]
+    fn reboot_only_allowed_when_fc_recently_reported_disarmed() {
+        let mut t = Telemetry::default();
+        assert_eq!(
+            t.check_reboot_allowed(1000, 5_000),
+            Err("no recent data from the FC".into())
+        );
+
+        t.last_fc_frame_ms = Some(4_500);
+        assert_eq!(
+            t.check_reboot_allowed(1000, 5_000),
+            Err("FC arm state unknown".into())
+        );
+
+        t.flight_mode = Some(FlightModeInfo {
+            name: "ACRO".into(),
+            label: "Acro".into(),
+            armed: true,
+        });
+        assert_eq!(
+            t.check_reboot_allowed(1000, 5_000),
+            Err("FC reports ARMED".into())
+        );
+
+        t.flight_mode.as_mut().unwrap().armed = false;
+        assert!(t.check_reboot_allowed(1900, 5_000).is_err());
+        assert!(t.check_reboot_allowed(1000, 5_000).is_ok());
+        // stale data
+        assert!(t.check_reboot_allowed(1000, 6_000).is_err());
     }
 
     #[test]

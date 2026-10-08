@@ -21,13 +21,25 @@ const MSP_V1: u8 = 1;
 
 /// MSP command ids
 pub mod cmd {
+    /// Reboot the flight controller (optional payload: reboot mode, 0 = firmware)
+    pub const REBOOT: u8 = 68;
     /// Raw accelerometer, gyro (deg/s) and magnetometer
     pub const RAW_IMU: u8 = 102;
+    /// `;`-separated names of the configured modes ("boxes"), in flight-mode-flag bit order
+    pub const BOXNAMES: u8 = 116;
     /// Motor outputs
     pub const MOTOR: u8 = 104;
+    /// Battery: cell count, voltage, mAh drawn, current, alert state
+    pub const BATTERY_STATE: u8 = 130;
     /// Extended status: loop time, CPU load, arming-disable flags...
     pub const STATUS_EX: u8 = 150;
 }
+
+/// MSP_REBOOT mode: normal firmware reboot
+pub const REBOOT_MODE_FIRMWARE: u8 = 0;
+
+/// Betaflight battery alert states, indexed by `batteryState_e`
+const BATTERY_STATE_NAMES: [&str; 5] = ["OK", "WARNING", "CRITICAL", "NOT_PRESENT", "INIT"];
 
 /// Betaflight 4.5 arming-disable flag names, indexed by bit
 const ARMING_DISABLE_FLAG_NAMES: [&str; 26] = [
@@ -86,6 +98,30 @@ pub struct FcStatus {
     pub reboot_required: bool,
     /// MCU core temperature in °C (0 if unsupported)
     pub cpu_temp_c: Option<u16>,
+    /// Names of the active Betaflight modes (needs MSP_BOXNAMES), e.g. ARM, ANGLE, AIR MODE
+    pub active_modes: Vec<String>,
+    /// Raw active-mode bitset, bit N = Nth entry of MSP_BOXNAMES
+    #[serde(skip)]
+    pub mode_flags: Vec<u8>,
+}
+
+/// Battery state from MSP_BATTERY_STATE
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct BatteryState {
+    /// Detected cell count (0 = no battery)
+    pub cell_count: u8,
+    /// Configured battery capacity in mAh (0 if not set)
+    pub capacity_mah: u16,
+    /// Pack voltage in volts (0.01 V resolution)
+    pub voltage_v: f32,
+    /// Average cell voltage in volts
+    pub cell_voltage_v: Option<f32>,
+    /// mAh drawn
+    pub used_mah: u16,
+    /// Current in amps (0.01 A resolution)
+    pub current_a: f32,
+    /// Betaflight's verdict: OK, WARNING, CRITICAL, NOT_PRESENT or INIT
+    pub state: String,
 }
 
 /// Raw IMU from MSP_RAW_IMU
@@ -101,12 +137,16 @@ pub struct Imu {
 
 /// Builds a complete CRSF frame carrying an MSPv1 request without payload
 pub fn build_request(msp_cmd: u8, seq: u8) -> Vec<u8> {
+    build_request_with_payload(msp_cmd, &[], seq)
+}
+
+/// Builds a complete CRSF frame carrying an MSPv1 request with a small payload (single chunk)
+pub fn build_request_with_payload(msp_cmd: u8, data: &[u8], seq: u8) -> Vec<u8> {
     let status =
         STATUS_START_MASK | (MSP_V1 << STATUS_VERSION_SHIFT) | (seq & STATUS_SEQUENCE_MASK);
-    build_frame(
-        frame_type::MSP_REQ,
-        &[SYNC_BYTE, RADIO_ADDRESS, status, 0, msp_cmd],
-    )
+    let mut payload = vec![SYNC_BYTE, RADIO_ADDRESS, status, data.len() as u8, msp_cmd];
+    payload.extend_from_slice(data);
+    build_frame(frame_type::MSP_REQ, &payload)
 }
 
 /// Reassembles chunked MSP responses
@@ -137,13 +177,19 @@ impl MspReassembler {
             if status & STATUS_ERROR_MASK != 0 || version != MSP_V1 || body.len() < 2 {
                 return None;
             }
+            // Sizes of 255+ are "jumbo": 0xFF, CMD, then a 16-bit little-endian size
+            let (size, header_len) = if body[0] == 0xFF {
+                (le_u16(body.get(..4)?, 2) as usize, 4)
+            } else {
+                (body[0] as usize, 2)
+            };
             self.pending = Some(Pending {
-                size: body[0] as usize,
+                size,
                 cmd: body[1],
-                data: Vec::with_capacity(body[0] as usize),
+                data: Vec::with_capacity(size),
                 next_seq: seq,
             });
-            self.append(&body[2..], seq)
+            self.append(&body[header_len..], seq)
         } else {
             self.append(body, seq)
         }
@@ -183,6 +229,54 @@ pub fn decode_motors(data: &[u8]) -> Option<Vec<u16>> {
     Some(motors[..used.max(4).min(motors.len())].to_vec())
 }
 
+/// Decodes MSP_BOXNAMES into the list of mode names
+pub fn decode_box_names(data: &[u8]) -> Vec<String> {
+    String::from_utf8_lossy(data)
+        .split(';')
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Names of the modes whose bit is set in `mode_flags`
+pub fn active_modes(box_names: &[String], mode_flags: &[u8]) -> Vec<String> {
+    box_names
+        .iter()
+        .enumerate()
+        .filter(|(bit, _)| {
+            mode_flags
+                .get(bit / 8)
+                .is_some_and(|b| b & (1 << (bit % 8)) != 0)
+        })
+        .map(|(_, name)| name.clone())
+        .collect()
+}
+
+/// Decodes MSP_BATTERY_STATE
+pub fn decode_battery_state(data: &[u8]) -> Option<BatteryState> {
+    // cells(1) capacity(2) legacy voltage dV(1) mAh(2) current cA(2) state(1) [voltage cV(2)]
+    if data.len() < 9 {
+        return None;
+    }
+    let cell_count = data[0];
+    let voltage_v = if data.len() >= 11 {
+        le_u16(data, 9) as f32 / 100.
+    } else {
+        data[3] as f32 / 10.
+    };
+    Some(BatteryState {
+        cell_count,
+        capacity_mah: le_u16(data, 1),
+        voltage_v,
+        cell_voltage_v: (cell_count > 0).then(|| voltage_v / cell_count as f32),
+        used_mah: le_u16(data, 4),
+        current_a: le_u16(data, 6) as i16 as f32 / 100.,
+        state: BATTERY_STATE_NAMES
+            .get(data[8] as usize)
+            .map_or_else(|| format!("STATE_{}", data[8]), |n| n.to_string()),
+    })
+}
+
 /// Decodes MSP_RAW_IMU
 pub fn decode_imu(data: &[u8]) -> Option<Imu> {
     if data.len() < 18 {
@@ -203,7 +297,11 @@ pub fn decode_status_ex(data: &[u8]) -> Option<FcStatus> {
         return None;
     }
     let sensor_mask = le_u16(data, 4);
+    let extra_mode_bytes = data[15] as usize;
+    let mut mode_flags = data[6..10].to_vec();
+    mode_flags.extend_from_slice(data.get(16..16 + extra_mode_bytes).unwrap_or(&[]));
     let mut status = FcStatus {
+        mode_flags,
         cycle_time_us: le_u16(data, 0),
         cpu_load_pct: le_u16(data, 11),
         sensors: SENSOR_NAMES
@@ -216,7 +314,7 @@ pub fn decode_status_ex(data: &[u8]) -> Option<FcStatus> {
     };
 
     // extra flight-mode bytes, then arming-disable count + flags
-    let mut i = 16 + data[15] as usize;
+    let mut i = 16 + extra_mode_bytes;
     if data.len() >= i + 5 {
         let count = data[i] as usize;
         let flags = u32::from_le_bytes([data[i + 1], data[i + 2], data[i + 3], data[i + 4]]);
@@ -301,6 +399,67 @@ mod tests {
     }
 
     #[test]
+    fn request_with_payload_layout() {
+        let frame = build_request_with_payload(cmd::REBOOT, &[REBOOT_MODE_FIRMWARE], 2);
+        let frames = CrsfParser::default().push(&frame);
+        assert_eq!(
+            frames[0].payload,
+            vec![SYNC_BYTE, RADIO_ADDRESS, 0x32, 1, cmd::REBOOT, 0]
+        );
+    }
+
+    #[test]
+    fn reassembles_jumbo_response() {
+        let mut r = MspReassembler::default();
+        let data: Vec<u8> = (0..300u16).map(|i| i as u8).collect();
+        let mut first = vec![0xFF, cmd::BOXNAMES];
+        first.extend_from_slice(&300u16.to_le_bytes());
+        first.extend_from_slice(&data[..50]);
+        assert!(r.push(&response_chunk(0x30, &first)).is_none());
+        let mut seq = 1;
+        let mut resp = None;
+        for chunk in data[50..].chunks(56) {
+            resp = r.push(&response_chunk(0x20 | seq, chunk));
+            seq += 1;
+        }
+        let resp = resp.unwrap();
+        assert_eq!(resp.cmd, cmd::BOXNAMES);
+        assert_eq!(resp.data, data);
+    }
+
+    #[test]
+    fn maps_mode_flags_to_box_names() {
+        let names = decode_box_names(b"ARM;ANGLE;HORIZON;AIR MODE;");
+        assert_eq!(names, vec!["ARM", "ANGLE", "HORIZON", "AIR MODE"]);
+        assert_eq!(active_modes(&names, &[0b1010]), vec!["ANGLE", "AIR MODE"]);
+        assert!(active_modes(&names, &[]).is_empty());
+    }
+
+    #[test]
+    fn decodes_battery_state() {
+        let mut d = vec![4]; // 4S
+        d.extend_from_slice(&1500u16.to_le_bytes()); // capacity
+        d.push(152); // legacy 15.2 V
+        d.extend_from_slice(&320u16.to_le_bytes()); // mAh drawn
+        d.extend_from_slice(&1234u16.to_le_bytes()); // 12.34 A
+        d.push(1); // WARNING
+        d.extend_from_slice(&1524u16.to_le_bytes()); // 15.24 V
+        let b = decode_battery_state(&d).unwrap();
+        assert_eq!(b.cell_count, 4);
+        assert_eq!(b.capacity_mah, 1500);
+        assert!((b.voltage_v - 15.24).abs() < 1e-4);
+        assert!((b.cell_voltage_v.unwrap() - 3.81).abs() < 1e-4);
+        assert_eq!(b.used_mah, 320);
+        assert!((b.current_a - 12.34).abs() < 1e-4);
+        assert_eq!(b.state, "WARNING");
+
+        // older firmware without the precise voltage, no battery detected
+        let b = decode_battery_state(&[0, 0, 0, 0, 0, 0, 0, 0, 3]).unwrap();
+        assert_eq!(b.cell_voltage_v, None);
+        assert_eq!(b.state, "NOT_PRESENT");
+    }
+
+    #[test]
     fn decodes_motors_trimming_unused_slots() {
         let mut data = vec![];
         for m in [1100u16, 1200, 1300, 1400, 0, 0, 0, 0] {
@@ -345,5 +504,6 @@ mod tests {
         assert_eq!(s.arming_disable_flags, vec!["THROTTLE", "ARM_SWITCH"]);
         assert!(s.reboot_required);
         assert_eq!(s.cpu_temp_c, Some(41));
+        assert_eq!(s.mode_flags, vec![0, 0, 0, 0, 0]);
     }
 }

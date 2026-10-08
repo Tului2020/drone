@@ -316,6 +316,46 @@ main {
     font-variant-numeric: tabular-nums;
 }
 
+/* ---------- flight mode ---------- */
+.mode-label {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.mode-label + p {
+    margin: 0;
+}
+
+.status-list li.chip {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    font-size: 12px;
+}
+
+.battery-status {
+    margin-top: 8px;
+}
+
+.status-list li[data-status="warning"] { color: var(--warning-text); }
+
+/* ---------- reboot ---------- */
+.reboot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+#reboot-fc:not(:disabled) {
+    border-color: var(--critical);
+    color: var(--critical-text);
+}
+
 /* ---------- key/value ---------- */
 .kv {
     display: grid;

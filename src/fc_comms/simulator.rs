@@ -12,8 +12,8 @@ use std::{
 };
 
 use super::{
-    msp::{FcStatus, Imu},
-    telemetry::{Altitude, Attitude, Battery, FlightModeInfo, Gps},
+    msp::{BatteryState, FcStatus, Imu},
+    telemetry::{flight_mode_label, Altitude, Attitude, Battery, FlightModeInfo, Gps},
     RcControls, Telemetry,
 };
 use crate::get_time_ms;
@@ -23,20 +23,40 @@ const TICK: Duration = Duration::from_millis(50);
 const MAX_TILT_DEG: f32 = 35.;
 /// Full yaw stick turns this many degrees per second
 const MAX_YAW_RATE_DPS: f32 = 180.;
+/// How long the simulated FC is silent after a reboot
+const REBOOT_DURATION: Duration = Duration::from_secs(2);
+/// Simulated battery cell count
+const CELLS: u8 = 4;
 
 /// Runs the simulator until `running` is cleared
 pub fn run(
     rc_controls: Arc<Mutex<RcControls>>,
     telemetry: Arc<Mutex<Telemetry>>,
     running: Arc<AtomicBool>,
+    reboot_requested: Arc<AtomicBool>,
 ) {
     let start = Instant::now();
+    let mut rebooting_until: Option<Instant> = None;
     let mut yaw_deg = 0f32;
     let mut used_mah = 0f32;
     let mut altitude_m = 0f32;
 
     while running.load(Ordering::SeqCst) {
         let rc = *rc_controls.lock().unwrap();
+
+        if reboot_requested.swap(false, Ordering::SeqCst)
+            && telemetry
+                .lock()
+                .unwrap()
+                .process_reboot_request(rc.aux1, get_time_ms() as u64)
+        {
+            rebooting_until = Some(Instant::now() + REBOOT_DURATION);
+        }
+        if rebooting_until.is_some_and(|until| Instant::now() < until) {
+            sleep(TICK);
+            continue;
+        }
+
         let t = start.elapsed().as_secs_f32();
         let dt = TICK.as_secs_f32();
         let stick = |us: u16| ((us as f32 - 1500.) / 500.).clamp(-1., 1.);
@@ -77,14 +97,28 @@ pub fn run(
                 roll_deg,
                 yaw_deg,
             });
+            let mode = match rc.aux2 {
+                ..=1200 => "AIR",
+                1201..=1600 => "STAB",
+                _ => "HOR",
+            };
             tm.flight_mode = Some(FlightModeInfo {
-                name: match rc.aux2 {
-                    ..=1200 => "ACRO",
-                    1201..=1600 => "ANGL",
-                    _ => "HOR",
-                }
-                .into(),
+                name: mode.into(),
+                label: flight_mode_label(mode),
                 armed,
+            });
+            tm.battery_state = Some(BatteryState {
+                cell_count: CELLS,
+                capacity_mah: 1500,
+                voltage_v,
+                cell_voltage_v: Some(voltage_v / CELLS as f32),
+                used_mah: used_mah as u16,
+                current_a,
+                state: if voltage_v / (CELLS as f32) < 3.5 {
+                    "WARNING".into()
+                } else {
+                    "OK".into()
+                },
             });
             tm.gps = Some(Gps {
                 latitude: 47.6062 + (yaw_deg as f64).to_radians().cos() * 1e-5,
@@ -118,6 +152,17 @@ pub fn run(
                 },
                 reboot_required: false,
                 cpu_temp_c: Some(42),
+                active_modes: [
+                    armed.then_some("ARM"),
+                    (mode == "STAB").then_some("ANGLE"),
+                    (mode == "HOR").then_some("HORIZON"),
+                    (mode == "AIR").then_some("AIR MODE"),
+                ]
+                .into_iter()
+                .flatten()
+                .map(String::from)
+                .collect(),
+                mode_flags: vec![],
             });
             tm.imu = Some(Imu {
                 acc_raw: [

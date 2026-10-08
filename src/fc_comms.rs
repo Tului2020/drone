@@ -48,6 +48,8 @@ impl FcComms {
 
         let rc_controls = Arc::new(Mutex::new(RcControls::default()));
         let telemetry = Arc::new(Mutex::new(Telemetry::default()));
+        // Set by the UDP server when the control server asks for an FC reboot
+        let reboot_requested = Arc::new(AtomicBool::new(false));
 
         #[cfg(feature = "udp_server")]
         // Create a UDP server that listens for RC data and sets the "rc_controls"
@@ -59,12 +61,14 @@ impl FcComms {
                 port: app_data.telemetry_port(),
                 interval_ms: app_data.telemetry_interval_ms(),
             };
+            let reboot_requested_clone = reboot_requested.clone();
             thread_spawn(move || {
                 UdpServer::new(
                     rc_controls_clone,
                     running_clone,
                     heatbeat_interval_ms,
                     telemetry_stream,
+                    reboot_requested_clone,
                 )
             });
         }
@@ -72,10 +76,19 @@ impl FcComms {
         #[cfg(not(feature = "real"))]
         // No FC attached: simulate telemetry so the rest of the pipeline can be developed locally
         {
-            let (rc_controls_clone, telemetry_clone, running_clone) =
-                (rc_controls.clone(), telemetry.clone(), running.clone());
+            let (rc_controls_clone, telemetry_clone, running_clone, reboot_requested_clone) = (
+                rc_controls.clone(),
+                telemetry.clone(),
+                running.clone(),
+                reboot_requested.clone(),
+            );
             std::thread::spawn(move || {
-                simulator::run(rc_controls_clone, telemetry_clone, running_clone)
+                simulator::run(
+                    rc_controls_clone,
+                    telemetry_clone,
+                    running_clone,
+                    reboot_requested_clone,
+                )
             });
         }
 
@@ -85,6 +98,7 @@ impl FcComms {
             // Thread that sends RC data to the FC every 20ms to prevent the FC from going into failsafe mode
             let rc_controls_clone = rc_controls.clone();
             let telemetry_clone = telemetry.clone();
+            let reboot_requested = reboot_requested.clone();
             let port_name = app_data.fc_port_name().to_string();
             let baud_rate = app_data.fc_baud_rate();
 
@@ -126,11 +140,20 @@ impl FcComms {
 
                 loop {
                     // ---------- build RC frame ----------
-                    let chans_us = { rc_controls_clone.lock().unwrap().chans_us() };
+                    let rc = { *rc_controls_clone.lock().unwrap() };
+                    let chans_us = rc.chans_us();
                     let chans: Vec<u16> = chans_us.iter().copied().map(us_to_crsf).collect();
                     let payload = pack_rc(&chans);
                     let mut frame = build_frame(frame_type::RC_CHANNELS_PACKED, &payload);
-                    if let Some(msp_request) = decoder.next_msp_request() {
+                    if reboot_requested.swap(false, Ordering::SeqCst) {
+                        let allowed = telemetry_clone
+                            .lock()
+                            .unwrap()
+                            .process_reboot_request(rc.aux1, crate::get_time_ms() as u64);
+                        if allowed {
+                            frame.extend_from_slice(&decoder.reboot_request());
+                        }
+                    } else if let Some(msp_request) = decoder.next_msp_request() {
                         frame.extend_from_slice(&msp_request);
                     }
 

@@ -26,6 +26,7 @@ const state = {
     savedSettings: null,
     draftSettings: null,
     powerHistory: [], // { t: performance.now(), w }
+    rebootPending: false,
     dirty: true,
 };
 
@@ -94,7 +95,8 @@ function renderBadges() {
     if (!mode) setBadge("badge-armed", "neutral", "–", "Armed: –");
     else if (mode.armed) setBadge("badge-armed", "warning", "!", "ARMED");
     else setBadge("badge-armed", "good", "✓", "Disarmed");
-    setBadge("badge-mode", "neutral", "", `Mode: ${mode ? mode.name : "–"}`);
+    setBadge("badge-mode", "neutral", "", `Mode: ${mode ? mode.label || mode.name : "–"}`);
+    renderRebootButton(t, age, now);
 
     const c = state.controller;
     const controllerAge = now - state.controllerAt;
@@ -103,10 +105,29 @@ function renderBadges() {
     else setBadge("badge-gs", "critical", "✕", "Controller: not connected");
 }
 
+const BATTERY_STATE_STATUS = { OK: "good", WARNING: "warning", CRITICAL: "critical", NOT_PRESENT: "warning", INIT: "neutral" };
+
 function renderPower(t) {
     const b = t && t.battery;
+    const bs = t && t.battery_state;
     $("power-w").textContent = b ? fmt(b.power_w, 0) : "–";
-    $("voltage").textContent = b ? fmt(b.voltage_v, 2) : "–";
+    // MSP gives 0.01 V resolution, CRSF only 0.1 V
+    $("voltage").textContent = bs ? fmt(bs.voltage_v, 2) : b ? fmt(b.voltage_v, 2) : "–";
+    $("cell-voltage").textContent = bs && bs.cell_voltage_v ? fmt(bs.cell_voltage_v, 2) : "–";
+    $("cell-count").textContent = bs && bs.cell_count ? `(${bs.cell_count}S)` : "";
+
+    const stateEl = $("battery-state");
+    if (bs) {
+        const status = BATTERY_STATE_STATUS[bs.state] || "neutral";
+        stateEl.className = "chip";
+        stateEl.dataset.status = status;
+        const icon = status === "good" ? "✓" : status === "neutral" ? "–" : status === "critical" ? "✕" : "!";
+        stateEl.textContent = `${icon} Betaflight battery state: ${bs.state}`;
+    } else {
+        stateEl.className = "muted";
+        delete stateEl.dataset.status;
+        stateEl.textContent = "Battery state: – (MSP)";
+    }
     $("current").textContent = b ? fmt(b.current_a, 1) : "–";
     $("used-mah").textContent = b ? b.used_mah : "–";
     $("battery-pct").textContent = b ? b.remaining_pct : "–";
@@ -114,7 +135,8 @@ function renderPower(t) {
     const meter = $("battery-meter");
     const pct = b ? b.remaining_pct : 0;
     meter.querySelector(".fill").style.width = `${pct}%`;
-    meter.dataset.status = pct < 20 ? "critical" : pct < 40 ? "warning" : "good";
+    const bfStatus = bs && BATTERY_STATE_STATUS[bs.state];
+    meter.dataset.status = bfStatus === "critical" || pct < 20 ? "critical" : bfStatus === "warning" || pct < 40 ? "warning" : "good";
 
     renderSparkline();
 }
@@ -272,6 +294,68 @@ function renderBars(containerId, rows, emptyText) {
         row.querySelector(".fill").style.width = `${clamp(r.pct, 0, 100)}%`;
         row.querySelector(".val").textContent = r.value;
     });
+}
+
+function renderFlightMode(t) {
+    const mode = t && t.flight_mode;
+    $("mode-label").textContent = mode ? `${mode.label || mode.name}${mode.armed ? "" : " · disarmed"}` : "–";
+    $("mode-code").textContent = mode ? mode.name : "–";
+
+    const s = t && t.fc_status;
+    const list = $("active-modes");
+    if (!s) {
+        list.innerHTML = `<li class="muted">No mode data (MSP)</li>`;
+    } else if (!s.active_modes.length) {
+        list.innerHTML = `<li class="muted">None active (or mode names not loaded yet)</li>`;
+    } else {
+        list.replaceChildren(...s.active_modes.map((name) => {
+            const li = document.createElement("li");
+            li.className = "chip";
+            li.textContent = name;
+            return li;
+        }));
+    }
+
+    const c = state.controller;
+    $("gs-mode").textContent = c ? `${c.flight_mode} · base throttle ${c.base_throttle} µs` : "–";
+}
+
+/** Same rules as `Telemetry::check_reboot_allowed` on the drone, which has the final say */
+function rebootBlockedReason(t, telemetryAge, now) {
+    if (!t || telemetryAge > 1000) return "no telemetry from the drone";
+    if (now - state.fcAliveAt > 1000) return "no recent data from the FC";
+    if (!t.flight_mode) return "FC arm state unknown";
+    if (t.flight_mode.armed) return "FC is ARMED";
+    if (t.rc_sent && t.rc_sent.aux1 >= 1500) return "arm switch (AUX1) is not in the disarm position";
+    return null;
+}
+
+function renderRebootButton(t, telemetryAge, now) {
+    const button = $("reboot-fc");
+    const reason = rebootBlockedReason(t, telemetryAge, now);
+    button.disabled = !!reason || state.rebootPending;
+    button.title = reason ? `Unavailable: ${reason}` : "Reboot the flight controller";
+
+    const r = t && t.fc_reboot;
+    const status = $("reboot-status");
+    if (state.rebootPending) status.textContent = "Requesting…";
+    else if (r && Date.now() - r.at_ms < 60_000) status.textContent = r.message;
+    else status.textContent = reason ? `Unavailable: ${reason}` : "";
+}
+
+async function rebootFc() {
+    if (!confirm("Reboot the flight controller?\n\nThe drone will only do it if the FC reports disarmed. Telemetry drops out for a few seconds.")) return;
+    state.rebootPending = true;
+    renderBadges();
+    try {
+        const res = await fetch("/reboot-fc", { method: "POST" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (e) {
+        $("reboot-status").textContent = `Request failed: ${e.message}`;
+    } finally {
+        // the drone reports the outcome in telemetry (fc_reboot)
+        setTimeout(() => { state.rebootPending = false; renderBadges(); }, 500);
+    }
 }
 
 function renderMotorsAndRc(t) {
@@ -607,6 +691,7 @@ function frame() {
         const t = state.telemetry;
         renderPower(t);
         renderAttitude(t);
+        renderFlightMode(t);
         renderMotorsAndRc(t);
         renderPosition(t);
         renderHealth(t);
@@ -619,6 +704,7 @@ function frame() {
 window.addEventListener("load", () => {
     buildAxisCards();
     setupSettingsButtons();
+    $("reboot-fc").addEventListener("click", rebootFc);
     setupSparklineHover();
     setupManualRc();
     loadSettings();
