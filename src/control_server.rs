@@ -1,16 +1,21 @@
-//! Control server. This module talks to a frontend application and sends messages to
-//! the UDP server.
+//! Control server. This module talks to a frontend application, sends messages to
+//! the UDP server and receives telemetry from the drone.
+mod telemetry_hub;
+
 use std::net::ToSocketAddrs;
 
 use actix_files as fs;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use futures::future::join_all;
+use futures::{future::join_all, stream};
+use serde_json::json;
 use tokio::net::UdpSocket;
 use tracing::{debug, error, info};
 
+pub use telemetry_hub::{ReceivedTelemetry, TelemetryHub};
+
 use crate::{
-    app_data::DroneAppData, fc_comms::RcControls, logger::init_logger, messages::Message,
-    DroneResult,
+    app_data::DroneAppData, fc_comms::RcControls, get_time_ms, logger::init_logger,
+    messages::Message, DroneResult,
 };
 
 /// Control server module.
@@ -21,6 +26,8 @@ pub struct ControlServer {
     addr: String,
     /// Heartbeat interval in milliseconds (optional, only if feature is enabled).
     heartbeat_interval_ms: u64,
+    /// UDP port to receive telemetry from the drone on.
+    telemetry_port: u16,
 }
 
 impl ControlServer {
@@ -45,6 +52,7 @@ impl ControlServer {
             udp_server_addr: app_data.udp_server_addr().to_string(),
             addr: app_data.control_server_address().to_string(),
             heartbeat_interval_ms: app_data.heartbeat_interval_ms() as u64,
+            telemetry_port: app_data.telemetry_port(),
         })
     }
 
@@ -80,16 +88,31 @@ impl ControlServer {
             })
         };
 
+        // Receives telemetry from the drone
+        let telemetry_hub = web::Data::new(TelemetryHub::default());
+        let telemetry_task: tokio::task::JoinHandle<DroneResult> = {
+            let telemetry_hub = telemetry_hub.clone();
+            let port = self.telemetry_port;
+            tokio::spawn(async move {
+                telemetry_hub.listen(port).await;
+                Ok(())
+            })
+        };
+
         // Spins up a web server that listens for incoming HTTP requests and serves static files.
         let server_task: tokio::task::JoinHandle<DroneResult> = {
             let udp_client_clone = udp_client.clone();
+            let telemetry_hub = telemetry_hub.clone();
             let addr = self.addr.clone();
             tokio::spawn(async move {
                 HttpServer::new(move || {
                     App::new()
                         .route("/set-rc", web::post().to(Self::set_rc))
+                        .route("/telemetry", web::get().to(Self::get_telemetry))
+                        .route("/telemetry/stream", web::get().to(Self::telemetry_stream))
                         .service(fs::Files::new("/", "./static").index_file("index.html"))
                         .app_data(udp_client_clone.clone())
+                        .app_data(telemetry_hub.clone())
                 })
                 .bind(&addr)
                 .unwrap()
@@ -113,12 +136,45 @@ impl ControlServer {
         let _s = join_all(vec![
             server_task,
             heartbeat_task,
+            telemetry_task,
             #[cfg(feature = "dualsense")]
             dualsense_controller_task,
         ])
         .await;
 
         Ok(())
+    }
+
+    /// Latest telemetry with its age, or 204 if none has been received yet
+    async fn get_telemetry(telemetry_hub: web::Data<TelemetryHub>) -> impl Responder {
+        match telemetry_hub.latest() {
+            Some(latest) => HttpResponse::Ok().json(json!({
+                "age_ms": (get_time_ms() as u64).saturating_sub(latest.received_ms),
+                "received_ms": latest.received_ms,
+                "from": latest.from,
+                "telemetry": latest.telemetry,
+            })),
+            None => HttpResponse::NoContent().finish(),
+        }
+    }
+
+    /// Server-Sent Events stream with an event for every telemetry update
+    async fn telemetry_stream(telemetry_hub: web::Data<TelemetryHub>) -> impl Responder {
+        let mut rx = telemetry_hub.subscribe();
+        rx.mark_changed(); // send the current value straight away
+
+        let events = stream::unfold(rx, |mut rx| async move {
+            rx.changed().await.ok()?;
+            let latest = rx.borrow_and_update().clone();
+            let data = serde_json::to_string(&latest).unwrap_or_else(|_| "null".into());
+            let event = format!("event: telemetry\ndata: {data}\n\n");
+            Some((Ok::<_, actix_web::Error>(web::Bytes::from(event)), rx))
+        });
+
+        HttpResponse::Ok()
+            .content_type("text/event-stream")
+            .insert_header(("Cache-Control", "no-cache"))
+            .streaming(events)
     }
 
     async fn set_rc(

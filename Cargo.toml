@@ -23,6 +23,7 @@ tokio = { version = "=1.45.0", features = [
     "macros",
     "rt-multi-thread",
     "time",
+    "sync",
     "io-util",
     "fs",
 ] }
@@ -54,7 +55,7 @@ name = "raspi"
 path = "src/bin/raspi.rs"
 required-features = ["udp_server"]
 
-# Runs on the ground station: web UI and DualSense input
+# Runs on the ground station: web UI, DualSense input and telemetry listener
 [[bin]]
 name = "control_server"
 path = "src/bin/control_server.rs"
