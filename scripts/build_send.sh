@@ -5,7 +5,7 @@
 # rustup component add rust-src      # cross needs it
 # cargo install cross --git https://github.com/cross-rs/cross --locked
 
-# Script to build and deploy drone binary to Raspberry Pi
+# Script to build and deploy the raspi binary to Raspberry Pi
 # Usage: ./build_send.sh [OS_BIT] [USERNAME] [HOSTNAME] [DESTINATION]
 # 
 # Parameters:
@@ -39,5 +39,5 @@ echo "Target: $TARGET"
 echo "Deploying to: $USERNAME@$HOSTNAME:$DESTINATION"
 
 # Build and deploy
-cross build --target=$TARGET --release --no-default-features --features raspi && \
-scp ./target/$TARGET/release/drone $USERNAME@$HOSTNAME:$DESTINATION
+cross build --target=$TARGET --release --no-default-features --features raspi --bin raspi && \
+scp ./target/$TARGET/release/raspi $USERNAME@$HOSTNAME:$DESTINATION

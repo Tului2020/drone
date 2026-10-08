@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use drone::{control_server::ControlServer, DroneResult};
+use drone::{config_path, control_server::ControlServer, DroneResult};
 use tokio::time::sleep;
 use tracing::{debug, error, info};
 
@@ -34,7 +34,7 @@ async fn main() -> DroneResult {
     });
 
     let control_server_task = {
-        let control_server = ControlServer::new("./config.json")?;
+        let control_server = ControlServer::new(&config_path())?;
         tokio::spawn(async move {
             if let Err(e) = control_server.start().await {
                 error!("Error starting control server: {e}");

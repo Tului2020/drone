@@ -24,3 +24,13 @@ pub fn get_time_ms() -> u128 {
         .expect("Time went backwards")
         .as_millis()
 }
+
+/// Default path of the application configuration file.
+pub const DEFAULT_CONFIG_PATH: &str = "./config.json";
+
+/// Returns the config file path: the first CLI argument if given, otherwise [`DEFAULT_CONFIG_PATH`].
+pub fn config_path() -> String {
+    std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| DEFAULT_CONFIG_PATH.to_string())
+}

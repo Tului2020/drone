@@ -19,7 +19,7 @@ Installation Steps
     After=network.target
 
     [Service]
-    ExecStart=/home/drone/drone
+    ExecStart=/home/drone/raspi
     WorkingDirectory=/home/drone
     Restart=always
     User=root

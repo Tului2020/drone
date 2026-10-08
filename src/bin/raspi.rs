@@ -1,3 +1,4 @@
+//! Raspberry Pi entrypoint: receives RC commands over UDP and drives the flight controller.
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -6,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use drone::{app::App, DroneResult};
+use drone::{app::App, config_path, DroneResult};
 
 use tokio::time::sleep;
 use tracing::debug;
@@ -16,7 +17,7 @@ async fn main() -> DroneResult {
     let running = Arc::new(AtomicBool::new(true));
     let running_clone = running.clone();
 
-    App::new("./config.json", running.clone())?;
+    App::new(&config_path(), running.clone())?;
 
     ctrlc::set_handler(move || {
         debug!("Ctrl+C detected!");

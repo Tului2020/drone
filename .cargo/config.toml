@@ -1,2 +1,4 @@
 [alias]
 run-control-server = "run --bin control_server --features control_server,dualsense"
+# Runs the Pi binary locally without a serial port (simulated FC)
+run-raspi-dev = "run --bin raspi --features raspi-development"

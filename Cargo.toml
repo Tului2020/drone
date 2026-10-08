@@ -2,7 +2,6 @@
 name = "drone"
 version = "0.1.0"
 edition = "2021"
-default-run = "drone"
 
 [dependencies]
 actix-files = { version = "=0.6.6", optional = true }
@@ -48,7 +47,13 @@ raspi-development = ["udp_server"]
 # development environment for control server, does not contain serialport
 control_server_development = ["control_server"]
 
-# This is used to send a drone command from the control server
+# Runs on the Raspberry Pi: receives RC commands over UDP and drives the FC over CRSF
+[[bin]]
+name = "raspi"
+path = "src/bin/raspi.rs"
+required-features = ["udp_server"]
+
+# Runs on the ground station: web UI and DualSense input
 [[bin]]
 name = "control_server"
 path = "src/bin/control_server.rs"
@@ -56,6 +61,15 @@ required-features = ["control_server", "dualsense"]
 
 # This is used for testing dualsense alone
 [[bin]]
-name = "dualsense"
-path = "src/bin/dualsense.rs"
+name = "dualsense_test"
+path = "src/bin/dualsense_test.rs"
 required-features = ["dualsense"]
+
+# Experiments
+[[example]]
+name = "camera_input"
+path = "examples/camera_input.rs"
+
+[[example]]
+name = "optical_flow"
+path = "examples/optical_flow.rs"
