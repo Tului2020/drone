@@ -3,6 +3,10 @@ Description=Drone UDP Server
 After=network.target
 
 [Service]
+# Wi-Fi power saving (on by default on Raspberry Pi OS) adds 50-100+ ms of jitter to every packet,
+# for both RC control and video. Turn it off whenever this service starts.
+# "+" runs it as root, "-" keeps the service starting even if it fails.
+ExecStartPre=-+/usr/sbin/iw dev wlan0 set power_save off
 ExecStart=/home/drone/raspi
 WorkingDirectory=/home/drone
 Restart=always

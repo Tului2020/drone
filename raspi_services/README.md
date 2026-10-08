@@ -19,6 +19,10 @@ Installation Steps
     After=network.target
 
     [Service]
+    # Wi-Fi power saving (on by default on Raspberry Pi OS) adds 50-100+ ms of jitter to every packet,
+    # for both RC control and video. Turn it off whenever this service starts.
+    # "+" runs it as root, "-" keeps the service starting even if it fails.
+    ExecStartPre=-+/usr/sbin/iw dev wlan0 set power_save off
     ExecStart=/home/drone/raspi
     WorkingDirectory=/home/drone
     Restart=always
@@ -27,6 +31,10 @@ Installation Steps
     [Install]
     WantedBy=multi-user.target
     ```
+
+   Both `drone.service` and `live_camera.service` turn off Wi-Fi power saving when they start
+   (`ExecStartPre`). It is on by default and adds 50-100+ ms of jitter to the control link and video.
+   Check it with `iw dev wlan0 get power_save` (should print `Power save: off`).
 
 3. **Reload systemd**: After creating or modifying the service file, reload the systemd manager configuration to recognize the new service.
     ```bash

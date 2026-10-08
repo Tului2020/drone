@@ -5,6 +5,10 @@ After=network.target
 [Service]
 Type=simple
 User=drone
+# Wi-Fi power saving (on by default on Raspberry Pi OS) adds 50-100+ ms of jitter to every packet,
+# for both RC control and video. Turn it off whenever this service starts.
+# "+" runs it as root, "-" keeps the service starting even if it fails.
+ExecStartPre=-+/usr/sbin/iw dev wlan0 set power_save off
 # --bitrate: keep well under what the Wi-Fi link sustains (~8 Mbit/s measured), otherwise video
 #   piles up in the TCP send queue and the feed lags by seconds
 # --inline + --intra 30: SPS/PPS and a keyframe every second, so viewers can join quickly
