@@ -1,11 +1,11 @@
 //! RcControls struct
 use std::fmt::Display;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 /// Struct to hold the RC controls values
-#[derive(Debug, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub struct RcControls {
     /// Roll channel value
     pub roll: u16,

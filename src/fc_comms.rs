@@ -1,5 +1,7 @@
 //! Module for FC communications
+pub mod crsf;
 mod rc_controls;
+pub mod telemetry;
 
 use std::sync::{atomic::AtomicBool, Arc, Mutex};
 #[cfg(any(feature = "real", feature = "udp_server"))]
@@ -8,6 +10,7 @@ use std::thread::spawn as thread_spawn;
 use std::{sync::atomic::Ordering, thread::sleep, time::Duration};
 
 pub use rc_controls::RcControls;
+pub use telemetry::Telemetry;
 #[cfg(feature = "real")]
 use serialport::SerialPort;
 use tracing::debug;
@@ -19,18 +22,14 @@ use crate::udp_server::UdpServer;
 use crate::{app_data::DroneAppData, DroneResult};
 
 #[cfg(feature = "real")]
-const SYNC_BYTE: u8 = 0xC8;
-#[cfg(feature = "real")]
-const POLY: u8 = 0xD5;
-#[cfg(feature = "real")]
-const TYPE_RC: u8 = 0x16;
-#[cfg(feature = "real")]
-const PAYLOAD_LEN_RC: u8 = 22;
+use crsf::{build_frame, frame_type, pack_rc, us_to_crsf, CrsfParser};
 
 /// FC communications
 pub struct FcComms {
     /// RC controls
     rc_controls: Arc<Mutex<RcControls>>,
+    /// Latest telemetry received from the FC
+    telemetry: Arc<Mutex<Telemetry>>,
 }
 
 impl FcComms {
@@ -39,6 +38,7 @@ impl FcComms {
         debug!("Creating FC communications {app_data:?} {running:?}");
 
         let rc_controls = Arc::new(Mutex::new(RcControls::default()));
+        let telemetry = Arc::new(Mutex::new(Telemetry::default()));
 
         #[cfg(feature = "udp_server")]
         // Create a UDP server that listens for RC data and sets the "rc_controls"
@@ -55,6 +55,7 @@ impl FcComms {
         {
             // Thread that sends RC data to the FC every 20ms to prevent the FC from going into failsafe mode
             let rc_controls_clone = rc_controls.clone();
+            let telemetry_clone = telemetry.clone();
             let port_name = app_data.fc_port_name().to_string();
             let baud_rate = app_data.fc_baud_rate();
 
@@ -91,17 +92,27 @@ impl FcComms {
                     }
                 };
 
+                let mut parser = CrsfParser::default();
+                let mut read_buf = [0u8; 256];
+
                 loop {
                     // ---------- build RC frame ----------
                     let chans_us = { rc_controls_clone.lock().unwrap().chans_us() };
                     let chans: Vec<u16> = chans_us.iter().copied().map(us_to_crsf).collect();
                     let payload = pack_rc(&chans);
-                    let frame = build_frame(TYPE_RC, &payload);
+                    let frame = build_frame(frame_type::RC_CHANNELS_PACKED, &payload);
 
                     // ---------- try to write ----------
                     match port.write_all(&frame) {
                         Ok(_) => {
                             // normal path
+                            Self::read_telemetry(
+                                port.as_mut(),
+                                &mut parser,
+                                &mut read_buf,
+                                &telemetry_clone,
+                            );
+
                             if !running.load(Ordering::SeqCst) {
                                 debug!("Stopping RC data thread");
                                 break;
@@ -140,7 +151,49 @@ impl FcComms {
             });
         };
 
-        Ok(Self { rc_controls })
+        Ok(Self {
+            rc_controls,
+            telemetry,
+        })
+    }
+
+    /// Reads whatever the FC has sent since the last call and decodes it into `telemetry`
+    #[cfg(feature = "real")]
+    fn read_telemetry(
+        port: &mut dyn SerialPort,
+        parser: &mut CrsfParser,
+        read_buf: &mut [u8],
+        telemetry: &Mutex<Telemetry>,
+    ) {
+        let available = match port.bytes_to_read() {
+            Ok(n) if n > 0 => n as usize,
+            Ok(_) => return,
+            Err(e) => {
+                debug!("Failed to query FC serial buffer: {e}");
+                return;
+            }
+        };
+
+        let to_read = available.min(read_buf.len());
+        let frames = match port.read(&mut read_buf[..to_read]) {
+            Ok(n) => parser.push(&read_buf[..n]),
+            Err(e) => {
+                debug!("Failed to read FC telemetry: {e}");
+                return;
+            }
+        };
+
+        let now_ms = crate::get_time_ms() as u64;
+        let mut telemetry = telemetry.lock().unwrap();
+        for frame in &frames {
+            telemetry.apply_frame(frame, now_ms);
+        }
+        telemetry.crc_errors = parser.crc_errors;
+    }
+
+    /// Latest telemetry received from the FC
+    pub fn telemetry(&self) -> Arc<Mutex<Telemetry>> {
+        self.telemetry.clone()
     }
 
     #[cfg(feature = "real")]
@@ -191,68 +244,4 @@ impl FcComms {
             rc_controls.aux4 = aux4;
         }
     }
-}
-
-/// Helper function
-#[cfg(feature = "real")]
-fn us_to_crsf(val_us: u16) -> u16 {
-    (((val_us.saturating_sub(988)) as u32 * (1811 - 172)) / (2012 - 988) + 172) as u16
-}
-
-/// Hash function
-#[cfg(feature = "real")]
-fn crc8(data: &[u8]) -> u8 {
-    let mut crc = 0u8;
-    for &b in data {
-        crc ^= b;
-        for _ in 0..8 {
-            crc = if crc & 0x80 != 0 {
-                (crc << 1) ^ POLY
-            } else {
-                crc << 1
-            };
-        }
-    }
-    crc
-}
-
-/// Pack RC data
-#[cfg(feature = "real")]
-fn pack_rc(ch: &[u16]) -> [u8; 22] {
-    let mut out = [0u8; PAYLOAD_LEN_RC as usize];
-    let mut bit_ofs = 0;
-
-    for &v in ch.iter().take(16) {
-        let v = v & 0x07FF; // 11 bits
-        let byte_idx = bit_ofs / 8;
-        let bit_idx = bit_ofs % 8;
-
-        out[byte_idx] |= ((v << bit_idx) & 0xFF) as u8;
-        out[byte_idx + 1] |= ((v >> (8 - bit_idx)) & 0xFF) as u8;
-        if bit_idx >= 6 {
-            out[byte_idx + 2] |= ((v >> (16 - bit_idx)) & 0xFF) as u8;
-        }
-
-        bit_ofs += 11;
-    }
-
-    out
-}
-
-#[cfg(feature = "real")]
-fn build_frame(frame_type: u8, payload: &[u8]) -> Vec<u8> {
-    let length_field = payload.len() as u8 + 2; // TYPE + PAYLOAD + CRC
-    let mut hdr = vec![SYNC_BYTE, length_field, frame_type];
-
-    let crc = crc8(
-        &[frame_type]
-            .iter()
-            .chain(payload.iter())
-            .copied()
-            .collect::<Vec<u8>>(),
-    );
-    hdr.extend_from_slice(payload);
-    hdr.push(crc);
-
-    hdr
 }
