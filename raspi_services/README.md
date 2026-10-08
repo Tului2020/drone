@@ -46,7 +46,16 @@ Installation Steps
     ```
 
 **SETUP Camera**
+
+Raspberry Pi OS (Bookworm / Trixie) ships the camera stack as `rpicam-apps` (formerly
+`libcamera-apps`). Don't pin a `libcamera0.x` version: it conflicts with the one the OS already has.
 ```bash
 sudo apt update
-sudo apt install -y libcamera-apps libcamera0.6
+sudo apt install -y rpicam-apps
+```
+
+Check the camera is detected and can capture:
+```bash
+rpicam-hello --list-cameras
+rpicam-still -n -t 1000 -o /tmp/camera_test.jpg
 ```
