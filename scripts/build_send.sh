@@ -24,7 +24,7 @@ DESTINATION=${4:-}
 if [ "$OS_BIT" = "32" ]; then
     TARGET="armv7-unknown-linux-gnueabihf"
     USERNAME=${USERNAME:-drone}
-    HOSTNAME=${HOSTNAME:-drone.local}
+    HOSTNAME=${HOSTNAME:-tului-hackathon.local}
 else
     TARGET="aarch64-unknown-linux-gnu"
     USERNAME=${USERNAME:-pilot}
