@@ -5,9 +5,11 @@ After=network.target
 [Service]
 Type=simple
 User=drone
-# --inline + --intra 25: SPS/PPS and a keyframe every second, so viewers can join quickly
+# --bitrate: keep well under what the Wi-Fi link sustains (~8 Mbit/s measured), otherwise video
+#   piles up in the TCP send queue and the feed lags by seconds
+# --inline + --intra 30: SPS/PPS and a keyframe every second, so viewers can join quickly
 # --flush: send each frame immediately; -n: no preview window
-ExecStart=/bin/sh -lc 'exec rpicam-vid -t 0 -n --inline --intra 25 --flush --shutter 5000 --framerate 25 --width 720 --height 720 -o - | nc -lk -p 2222'
+ExecStart=/bin/sh -lc 'exec rpicam-vid -t 0 -n --inline --intra 30 --flush --bitrate 2000000 --shutter 5000 --framerate 30 --width 720 --height 720 -o - | nc -lk -p 2222'
 Restart=always
 RestartSec=2
 
