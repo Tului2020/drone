@@ -5,7 +5,7 @@ mod telemetry_hub;
 use std::{net::ToSocketAddrs, path::PathBuf};
 
 use actix_files as fs;
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{middleware, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use futures::{future::join_all, stream, Stream, StreamExt};
 use serde::Serialize;
 use serde_json::json;
@@ -129,6 +129,9 @@ impl ControlServer {
             tokio::spawn(async move {
                 HttpServer::new(move || {
                     let app = App::new()
+                        // Make browsers revalidate the UI files so an updated dashboard is
+                        // never shadowed by a stale cached copy
+                        .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "no-cache")))
                         .route("/set-rc", web::post().to(Self::set_rc))
                         .route("/telemetry", web::get().to(Self::get_telemetry))
                         .route("/telemetry/stream", web::get().to(Self::event_stream))

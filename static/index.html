@@ -3,14 +3,121 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>RC Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Drone Ground Station</title>
     <link rel="stylesheet" href="index.css">
-    <script src="index.js"></script>
+    <script src="index.js" defer></script>
 </head>
 
 <body>
-    <h1>RC Control Sliders</h1>
-    <div id="sliders"></div>
+    <header class="topbar">
+        <h1>Drone ground station</h1>
+        <div class="badges">
+            <span class="badge" id="badge-link" data-status="critical"><span class="icon">✕</span><span class="text">Drone: no data</span></span>
+            <span class="badge" id="badge-fc" data-status="neutral"><span class="icon">–</span><span class="text">FC: –</span></span>
+            <span class="badge" id="badge-armed" data-status="neutral"><span class="icon">–</span><span class="text">Disarmed</span></span>
+            <span class="badge" id="badge-mode" data-status="neutral"><span class="text">Mode: –</span></span>
+            <span class="badge" id="badge-gs" data-status="neutral"><span class="icon">–</span><span class="text">Controller: –</span></span>
+        </div>
+    </header>
+
+    <main>
+        <section class="grid">
+            <article class="card card-power">
+                <h2>Power</h2>
+                <div class="hero"><span id="power-w">–</span><span class="unit">W</span></div>
+                <div class="tiles">
+                    <div class="tile"><div class="label">Voltage</div><div class="value"><span id="voltage">–</span> V</div></div>
+                    <div class="tile"><div class="label">Current</div><div class="value"><span id="current">–</span> A</div></div>
+                    <div class="tile"><div class="label">Used</div><div class="value"><span id="used-mah">–</span> mAh</div></div>
+                    <div class="tile"><div class="label">Battery</div><div class="value"><span id="battery-pct">–</span> %</div></div>
+                </div>
+                <div class="meter" id="battery-meter" data-status="good"><div class="fill"></div></div>
+                <div class="spark-wrap">
+                    <div class="spark-label" id="power-spark-label">Power, last 60 s</div>
+                    <svg id="power-spark" class="spark" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>
+                    <div class="tooltip" id="power-tip" hidden></div>
+                </div>
+            </article>
+
+            <article class="card card-attitude">
+                <h2>Attitude</h2>
+                <canvas id="horizon" width="260" height="260" aria-label="Artificial horizon"></canvas>
+                <div class="tiles three">
+                    <div class="tile"><div class="label">Pitch</div><div class="value"><span id="pitch">–</span>°</div></div>
+                    <div class="tile"><div class="label">Roll</div><div class="value"><span id="roll">–</span>°</div></div>
+                    <div class="tile"><div class="label">Yaw</div><div class="value"><span id="yaw">–</span>°</div></div>
+                </div>
+            </article>
+
+            <article class="card">
+                <h2>Motors</h2>
+                <div id="motors" class="bars"><p class="muted">No motor data (MSP)</p></div>
+                <h2 class="sub">RC sent to FC</h2>
+                <div id="rc-sent" class="bars"><p class="muted">–</p></div>
+            </article>
+
+            <article class="card">
+                <h2>Position &amp; altitude</h2>
+                <dl class="kv">
+                    <dt>Baro altitude</dt><dd><span id="baro-alt">–</span> m</dd>
+                    <dt>Vertical speed</dt><dd><span id="vspeed">–</span> m/s</dd>
+                    <dt>Ground speed</dt><dd><span id="gspeed">–</span> m/s</dd>
+                    <dt>Heading</dt><dd><span id="heading">–</span>°</dd>
+                    <dt>GPS altitude</dt><dd><span id="gps-alt">–</span> m</dd>
+                    <dt>Satellites</dt><dd id="sats">–</dd>
+                    <dt>Position</dt><dd id="latlon">–</dd>
+                </dl>
+            </article>
+
+            <article class="card">
+                <h2>FC health</h2>
+                <div class="tiles">
+                    <div class="tile"><div class="label">CPU load</div><div class="value"><span id="cpu">–</span> %</div></div>
+                    <div class="tile"><div class="label">Loop time</div><div class="value"><span id="cycle">–</span> µs</div></div>
+                    <div class="tile"><div class="label">CPU temp</div><div class="value"><span id="cpu-temp">–</span> °C</div></div>
+                    <div class="tile"><div class="label">CRC errors</div><div class="value" id="crc">–</div></div>
+                </div>
+                <div class="meter" id="cpu-meter" data-status="good"><div class="fill"></div></div>
+                <h2 class="sub">Arming</h2>
+                <ul id="arming" class="status-list"><li class="muted">No status (MSP)</li></ul>
+                <p class="muted small">Sensors: <span id="sensors">–</span></p>
+            </article>
+
+            <article class="card">
+                <h2>IMU</h2>
+                <table class="imu">
+                    <thead><tr><th></th><th>X</th><th>Y</th><th>Z</th></tr></thead>
+                    <tbody>
+                        <tr><th>Gyro (°/s)</th><td id="gx">–</td><td id="gy">–</td><td id="gz">–</td></tr>
+                        <tr><th>Acc (raw)</th><td id="ax">–</td><td id="ay">–</td><td id="az">–</td></tr>
+                    </tbody>
+                </table>
+            </article>
+        </section>
+
+        <section class="card sensitivity">
+            <div class="section-head">
+                <div>
+                    <h2>Controller sensitivity</h2>
+                    <p class="muted small">Rate caps how far a full stick push goes. Expo softens the center. Slew stops a sudden full press from jumping (µs per second, 0 = off). The dot shows the live stick.</p>
+                </div>
+                <div class="actions">
+                    <span id="settings-status" class="muted small"></span>
+                    <button id="settings-defaults" type="button">Defaults</button>
+                    <button id="settings-revert" type="button">Revert</button>
+                    <button id="settings-save" type="button" class="primary">Save &amp; apply</button>
+                </div>
+            </div>
+            <div id="axes" class="axes"></div>
+        </section>
+
+        <details class="card manual">
+            <summary>Manual RC sliders (keyboard: arrows = pitch/roll, W/S = throttle, A/D = yaw, 1–4 = aux)</summary>
+            <p class="muted small">These send directly to /set-rc and fight with the DualSense if both are used.</p>
+            <div id="sliders"></div>
+        </details>
+    </main>
 </body>
 
 </html>
