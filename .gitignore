@@ -1,3 +1,5 @@
 /target
 test*.rs
 .DS_Store
+# Saved DualSense sensitivity tuning (written by the control server)
+controller_settings.json

@@ -359,7 +359,10 @@ mod tests {
     #[test]
     fn decodes_vario_and_baro_altitude() {
         let mut t = Telemetry::default();
-        t.apply_frame(&frame(frame_type::VARIO, (-150i16).to_be_bytes().to_vec()), 0);
+        t.apply_frame(
+            &frame(frame_type::VARIO, (-150i16).to_be_bytes().to_vec()),
+            0,
+        );
         assert_eq!(t.altitude.as_ref().unwrap().vertical_speed_ms, Some(-1.5));
 
         // 12.3 m in decimeters + 10000 offset, vertical speed packed 0

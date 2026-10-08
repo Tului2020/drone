@@ -13,9 +13,9 @@ use std::thread::spawn as thread_spawn;
 use std::{sync::atomic::Ordering, thread::sleep, time::Duration};
 
 pub use rc_controls::RcControls;
-pub use telemetry::Telemetry;
 #[cfg(feature = "real")]
 use serialport::SerialPort;
+pub use telemetry::Telemetry;
 use tracing::debug;
 #[cfg(feature = "real")]
 use tracing::{error, info};

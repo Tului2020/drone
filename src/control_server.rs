@@ -2,16 +2,23 @@
 //! the UDP server and receives telemetry from the drone.
 mod telemetry_hub;
 
-use std::net::ToSocketAddrs;
+use std::{net::ToSocketAddrs, path::PathBuf};
 
 use actix_files as fs;
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use futures::{future::join_all, stream};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use futures::{future::join_all, stream, Stream, StreamExt};
+use serde::Serialize;
 use serde_json::json;
-use tokio::net::UdpSocket;
+use tokio::{net::UdpSocket, sync::watch};
 use tracing::{debug, error, info};
 
 pub use telemetry_hub::{ReceivedTelemetry, TelemetryHub};
+
+#[cfg(feature = "dualsense")]
+use crate::dualsense_controller::{settings::ControllerSettings, ControllerHub};
+
+/// File (next to the config file) where controller sensitivity settings are saved
+const CONTROLLER_SETTINGS_FILE: &str = "controller_settings.json";
 
 use crate::{
     app_data::DroneAppData, fc_comms::RcControls, get_time_ms, logger::init_logger,
@@ -28,6 +35,9 @@ pub struct ControlServer {
     heartbeat_interval_ms: u64,
     /// UDP port to receive telemetry from the drone on.
     telemetry_port: u16,
+    /// Where controller sensitivity settings are saved.
+    #[cfg_attr(not(feature = "dualsense"), allow(dead_code))]
+    controller_settings_path: PathBuf,
 }
 
 impl ControlServer {
@@ -53,7 +63,13 @@ impl ControlServer {
             addr: app_data.control_server_address().to_string(),
             heartbeat_interval_ms: app_data.heartbeat_interval_ms() as u64,
             telemetry_port: app_data.telemetry_port(),
+            controller_settings_path: Self::controller_settings_path(app_data_file_path),
         })
+    }
+
+    /// Path of the controller settings file, next to the config file
+    pub fn controller_settings_path(app_data_file_path: &str) -> PathBuf {
+        PathBuf::from(app_data_file_path).with_file_name(CONTROLLER_SETTINGS_FILE)
     }
 
     /// Starts the control server.
@@ -99,20 +115,39 @@ impl ControlServer {
             })
         };
 
+        #[cfg(feature = "dualsense")]
+        let controller_hub =
+            web::Data::new(ControllerHub::new(self.controller_settings_path.clone()));
+
         // Spins up a web server that listens for incoming HTTP requests and serves static files.
         let server_task: tokio::task::JoinHandle<DroneResult> = {
             let udp_client_clone = udp_client.clone();
             let telemetry_hub = telemetry_hub.clone();
+            #[cfg(feature = "dualsense")]
+            let controller_hub = controller_hub.clone();
             let addr = self.addr.clone();
             tokio::spawn(async move {
                 HttpServer::new(move || {
-                    App::new()
+                    let app = App::new()
                         .route("/set-rc", web::post().to(Self::set_rc))
                         .route("/telemetry", web::get().to(Self::get_telemetry))
-                        .route("/telemetry/stream", web::get().to(Self::telemetry_stream))
-                        .service(fs::Files::new("/", "./static").index_file("index.html"))
+                        .route("/telemetry/stream", web::get().to(Self::event_stream))
                         .app_data(udp_client_clone.clone())
-                        .app_data(telemetry_hub.clone())
+                        .app_data(telemetry_hub.clone());
+
+                    #[cfg(feature = "dualsense")]
+                    let app = app
+                        .route(
+                            "/controller-settings",
+                            web::get().to(Self::get_controller_settings),
+                        )
+                        .route(
+                            "/controller-settings",
+                            web::put().to(Self::put_controller_settings),
+                        )
+                        .app_data(controller_hub.clone());
+
+                    app.service(fs::Files::new("/", "./static").index_file("index.html"))
                 })
                 .bind(&addr)
                 .unwrap()
@@ -130,7 +165,7 @@ impl ControlServer {
 
             // Spins up a DualSense controller task that reads input from the controller.
             let udp_client = udp_client.clone();
-            tokio::spawn(DualsenseController::new(udp_client))
+            tokio::spawn(DualsenseController::new(udp_client, controller_hub))
         };
 
         let _s = join_all(vec![
@@ -158,23 +193,42 @@ impl ControlServer {
         }
     }
 
-    /// Server-Sent Events stream with an event for every telemetry update
-    async fn telemetry_stream(telemetry_hub: web::Data<TelemetryHub>) -> impl Responder {
-        let mut rx = telemetry_hub.subscribe();
-        rx.mark_changed(); // send the current value straight away
+    /// Server-Sent Events stream: a `telemetry` event for every drone update and, with a
+    /// DualSense attached, a `controller` event for every controller tick
+    async fn event_stream(
+        telemetry_hub: web::Data<TelemetryHub>,
+        req: HttpRequest,
+    ) -> impl Responder {
+        let events = sse_events("telemetry", telemetry_hub.subscribe()).boxed();
 
-        let events = stream::unfold(rx, |mut rx| async move {
-            rx.changed().await.ok()?;
-            let latest = rx.borrow_and_update().clone();
-            let data = serde_json::to_string(&latest).unwrap_or_else(|_| "null".into());
-            let event = format!("event: telemetry\ndata: {data}\n\n");
-            Some((Ok::<_, actix_web::Error>(web::Bytes::from(event)), rx))
-        });
+        #[cfg(feature = "dualsense")]
+        let events = match req.app_data::<web::Data<ControllerHub>>() {
+            Some(hub) => stream::select(events, sse_events("controller", hub.subscribe())).boxed(),
+            None => events,
+        };
+        #[cfg(not(feature = "dualsense"))]
+        let _ = req;
 
         HttpResponse::Ok()
             .content_type("text/event-stream")
             .insert_header(("Cache-Control", "no-cache"))
             .streaming(events)
+    }
+
+    #[cfg(feature = "dualsense")]
+    async fn get_controller_settings(hub: web::Data<ControllerHub>) -> impl Responder {
+        HttpResponse::Ok().json(hub.settings())
+    }
+
+    #[cfg(feature = "dualsense")]
+    async fn put_controller_settings(
+        hub: web::Data<ControllerHub>,
+        settings: web::Json<ControllerSettings>,
+    ) -> impl Responder {
+        match hub.update_settings(settings.into_inner()) {
+            Ok(()) => HttpResponse::Ok().json(hub.settings()),
+            Err(e) => HttpResponse::BadRequest().json(json!({ "error": e })),
+        }
     }
 
     async fn set_rc(
@@ -256,4 +310,26 @@ impl UdpClient {
 
         self.send(msg.as_bytes()).await
     }
+}
+
+/// Turns a watch channel into a stream of Server-Sent Events named `event`, starting with the current value
+fn sse_events<T>(
+    event: &'static str,
+    mut rx: watch::Receiver<T>,
+) -> impl Stream<Item = Result<web::Bytes, actix_web::Error>> + 'static
+where
+    T: Serialize + Send + Sync + 'static,
+{
+    rx.mark_changed();
+    stream::unfold(rx, move |mut rx| async move {
+        rx.changed().await.ok()?;
+        let data =
+            serde_json::to_string(&*rx.borrow_and_update()).unwrap_or_else(|_| "null".into());
+        Some((
+            Ok(web::Bytes::from(format!(
+                "event: {event}\ndata: {data}\n\n"
+            ))),
+            rx,
+        ))
+    })
 }

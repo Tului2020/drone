@@ -44,7 +44,11 @@ pub fn run(
         let armed = rc.aux1 >= 1800;
 
         yaw_deg = (yaw_deg + stick(rc.yaw) * MAX_YAW_RATE_DPS * dt).rem_euclid(360.);
-        let current_a = if armed { 1.5 + 40. * throttle.powi(2) } else { 0.4 };
+        let current_a = if armed {
+            1.5 + 40. * throttle.powi(2)
+        } else {
+            0.4
+        };
         used_mah += current_a * 1000. * dt / 3600.;
         let voltage_v = (16.8 - used_mah / 1500. * 2.6 - current_a * 0.015).max(13.2);
         let vertical_speed_ms = if armed { (throttle - 0.41) * 8. } else { 0. };

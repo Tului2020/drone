@@ -101,7 +101,8 @@ pub struct Imu {
 
 /// Builds a complete CRSF frame carrying an MSPv1 request without payload
 pub fn build_request(msp_cmd: u8, seq: u8) -> Vec<u8> {
-    let status = STATUS_START_MASK | (MSP_V1 << STATUS_VERSION_SHIFT) | (seq & STATUS_SEQUENCE_MASK);
+    let status =
+        STATUS_START_MASK | (MSP_V1 << STATUS_VERSION_SHIFT) | (seq & STATUS_SEQUENCE_MASK);
     build_frame(
         frame_type::MSP_REQ,
         &[SYNC_BYTE, RADIO_ADDRESS, status, 0, msp_cmd],
