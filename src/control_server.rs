@@ -1,5 +1,6 @@
 //! Control server. This module talks to a frontend application, sends messages to
 //! the UDP server and receives telemetry from the drone.
+mod camera;
 mod telemetry_hub;
 
 use std::{net::ToSocketAddrs, path::PathBuf};
@@ -12,6 +13,7 @@ use serde_json::json;
 use tokio::{net::UdpSocket, sync::watch};
 use tracing::{debug, error, info};
 
+pub use camera::CameraHub;
 pub use telemetry_hub::{ReceivedTelemetry, TelemetryHub};
 
 #[cfg(feature = "dualsense")]
@@ -33,6 +35,8 @@ pub struct ControlServer {
     addr: String,
     /// UDP port to receive telemetry from the drone on.
     telemetry_port: u16,
+    /// The drone's camera stream address.
+    camera_stream_addr: String,
     /// Where controller sensitivity settings are saved.
     #[cfg_attr(not(feature = "dualsense"), allow(dead_code))]
     controller_settings_path: PathBuf,
@@ -60,6 +64,7 @@ impl ControlServer {
             udp_server_addr: app_data.udp_server_addr().to_string(),
             addr: app_data.control_server_address().to_string(),
             telemetry_port: app_data.telemetry_port(),
+            camera_stream_addr: app_data.camera_stream_addr(),
             controller_settings_path: Self::controller_settings_path(app_data_file_path),
         })
     }
@@ -111,6 +116,16 @@ impl ControlServer {
             })
         };
 
+        // Relays the drone's camera stream
+        let camera_hub = web::Data::new(CameraHub::new(self.camera_stream_addr.clone()));
+        let camera_task: tokio::task::JoinHandle<DroneResult> = {
+            let camera_hub = camera_hub.clone();
+            tokio::spawn(async move {
+                camera_hub.run().await;
+                Ok(())
+            })
+        };
+
         #[cfg(feature = "dualsense")]
         let controller_hub =
             web::Data::new(ControllerHub::new(self.controller_settings_path.clone()));
@@ -119,6 +134,7 @@ impl ControlServer {
         let server_task: tokio::task::JoinHandle<DroneResult> = {
             let udp_client_clone = udp_client.clone();
             let telemetry_hub = telemetry_hub.clone();
+            let camera_hub = camera_hub.clone();
             #[cfg(feature = "dualsense")]
             let controller_hub = controller_hub.clone();
             let addr = self.addr.clone();
@@ -132,6 +148,9 @@ impl ControlServer {
                         .route("/reboot-fc", web::post().to(Self::reboot_fc))
                         .route("/telemetry", web::get().to(Self::get_telemetry))
                         .route("/telemetry/stream", web::get().to(Self::event_stream))
+                        .route("/camera/status", web::get().to(Self::camera_status))
+                        .route("/camera/stream", web::get().to(Self::camera_stream))
+                        .app_data(camera_hub.clone())
                         .app_data(udp_client_clone.clone())
                         .app_data(telemetry_hub.clone());
 
@@ -172,6 +191,7 @@ impl ControlServer {
             server_task,
             heartbeat_task,
             telemetry_task,
+            camera_task,
             #[cfg(feature = "dualsense")]
             dualsense_controller_task,
         ])
@@ -213,6 +233,46 @@ impl ControlServer {
             .content_type("text/event-stream")
             .insert_header(("Cache-Control", "no-cache"))
             .streaming(events)
+    }
+
+    /// Whether the control server is connected to the drone's camera
+    async fn camera_status(camera_hub: web::Data<CameraHub>) -> impl Responder {
+        HttpResponse::Ok().json(json!({
+            "connected": camera_hub.is_connected(),
+            "addr": camera_hub.addr(),
+        }))
+    }
+
+    /// Length-prefixed H.264 NAL units (`[u32 BE length][NAL]`), starting at the next keyframe.
+    /// A client that falls behind is resynced at the following keyframe.
+    async fn camera_stream(camera_hub: web::Data<CameraHub>) -> impl Responder {
+        use tokio::sync::broadcast::error::RecvError;
+
+        let nals = stream::unfold(
+            (camera_hub.subscribe(), false),
+            |(mut rx, mut synced)| async move {
+                loop {
+                    match rx.recv().await {
+                        Ok(nal) => {
+                            synced = synced || camera::nal_type(&nal) == Some(camera::NAL_TYPE_SPS);
+                            if synced {
+                                let framed = camera::frame_for_browser(&nal);
+                                return Some((Ok::<_, actix_web::Error>(framed), (rx, synced)));
+                            }
+                        }
+                        Err(RecvError::Lagged(skipped)) => {
+                            debug!("Camera client lagged by {skipped} NAL units, resyncing");
+                            synced = false;
+                        }
+                        Err(RecvError::Closed) => return None,
+                    }
+                }
+            },
+        );
+
+        HttpResponse::Ok()
+            .content_type("application/octet-stream")
+            .streaming(nals)
     }
 
     #[cfg(feature = "dualsense")]

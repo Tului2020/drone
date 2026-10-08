@@ -683,6 +683,177 @@ function setupManualRc() {
 }
 
 // ---------------------------------------------------------------------------
+// Camera: H.264 from the drone, decoded in the browser with WebCodecs
+// ---------------------------------------------------------------------------
+const CAMERA_RECONNECT_MS = 2000;
+/** If the decoder falls this far behind, skip ahead to the next keyframe */
+const CAMERA_MAX_DECODE_QUEUE = 8;
+const CAMERA_FRAME_US = 40_000;
+const CAMERA_ROTATE_KEY = "camera-rotated";
+
+const camera = {
+    decoder: null,
+    codec: null,
+    needKey: true,
+    pending: [], // non-picture NAL units (SPS/PPS/SEI) waiting for the next frame
+    timestamp: 0,
+    framesThisSecond: 0,
+    lastFrameAt: 0,
+    size: "",
+};
+
+function concatBytes(parts) {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let offset = 0;
+    for (const p of parts) {
+        out.set(p, offset);
+        offset += p.length;
+    }
+    return out;
+}
+
+/** Offset of the NAL header byte (after a 00 00 01 or 00 00 00 01 start code) */
+const nalHeaderOffset = (nal) => (nal[2] === 1 ? 3 : 4);
+const nalType = (nal) => nal[nalHeaderOffset(nal)] & 0x1f;
+
+/** e.g. avc1.640028, from the SPS profile / constraint / level bytes */
+function codecFromSps(sps) {
+    const h = nalHeaderOffset(sps);
+    const hex = (b) => b.toString(16).padStart(2, "0");
+    return `avc1.${hex(sps[h + 1])}${hex(sps[h + 2])}${hex(sps[h + 3])}`;
+}
+
+function setCameraStatus(text, overlayText) {
+    $("camera-status").textContent = text;
+    const overlay = $("camera-overlay");
+    overlay.hidden = !overlayText;
+    if (overlayText) overlay.textContent = overlayText;
+}
+
+function createCameraDecoder(codec) {
+    if (camera.decoder && camera.decoder.state !== "closed") camera.decoder.close();
+    const canvas = $("camera");
+    const ctx = canvas.getContext("2d");
+    camera.decoder = new VideoDecoder({
+        output: (frame) => {
+            if (canvas.width !== frame.displayWidth || canvas.height !== frame.displayHeight) {
+                canvas.width = frame.displayWidth;
+                canvas.height = frame.displayHeight;
+                canvas.parentElement.style.aspectRatio = `${frame.displayWidth} / ${frame.displayHeight}`;
+            }
+            ctx.drawImage(frame, 0, 0);
+            frame.close();
+            camera.framesThisSecond += 1;
+            camera.lastFrameAt = performance.now();
+            camera.size = `${canvas.width}×${canvas.height}`;
+        },
+        error: (e) => {
+            console.warn("Camera decoder error", e);
+            camera.codec = null; // recreated at the next SPS
+            camera.needKey = true;
+        },
+    });
+    camera.decoder.configure({ codec, optimizeForLatency: true });
+    camera.codec = codec;
+    camera.needKey = true;
+}
+
+/** Assumes one slice per frame, which is what the Pi's hardware encoder produces */
+function handleCameraNal(nal) {
+    const type = nalType(nal);
+    if (type === 7) {
+        const codec = codecFromSps(nal);
+        if (codec !== camera.codec || !camera.decoder || camera.decoder.state === "closed") {
+            createCameraDecoder(codec);
+        }
+    }
+    if (type !== 1 && type !== 5) {
+        camera.pending.push(nal);
+        if (camera.pending.length > 32) camera.pending = [];
+        return;
+    }
+
+    const isKey = type === 5;
+    const parts = camera.pending;
+    camera.pending = [];
+    if (!camera.decoder || camera.decoder.state !== "configured") return;
+    if (camera.decoder.decodeQueueSize > CAMERA_MAX_DECODE_QUEUE) camera.needKey = true;
+    if (camera.needKey && !isKey) return;
+    camera.needKey = false;
+
+    camera.decoder.decode(new EncodedVideoChunk({
+        type: isKey ? "key" : "delta",
+        timestamp: camera.timestamp,
+        data: concatBytes([...parts, nal]),
+    }));
+    camera.timestamp += CAMERA_FRAME_US;
+}
+
+/** Reads `[u32 BE length][NAL]` records from /camera/stream forever, reconnecting on errors */
+async function runCamera() {
+    if (!("VideoDecoder" in window)) {
+        setCameraStatus("Unsupported", "This browser can't decode the H.264 camera stream. Use Chrome, Edge or Safari 16.4+.");
+        return;
+    }
+    for (;;) {
+        try {
+            const res = await fetch("/camera/stream", { cache: "no-store" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const reader = res.body.getReader();
+            let buf = new Uint8Array(0);
+            camera.needKey = true;
+            camera.pending = [];
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buf = buf.length ? concatBytes([buf, value]) : value;
+                let offset = 0;
+                while (buf.length - offset >= 4) {
+                    const len = new DataView(buf.buffer, buf.byteOffset + offset, 4).getUint32(0);
+                    if (buf.length - offset - 4 < len) break;
+                    handleCameraNal(buf.subarray(offset + 4, offset + 4 + len));
+                    offset += 4 + len;
+                }
+                buf = buf.slice(offset);
+            }
+        } catch (e) {
+            console.warn("Camera stream", e);
+        }
+        await new Promise((resolve) => setTimeout(resolve, CAMERA_RECONNECT_MS));
+    }
+}
+
+async function renderCameraStatus() {
+    const fps = camera.framesThisSecond;
+    camera.framesThisSecond = 0;
+    if (!("VideoDecoder" in window)) return;
+    if (performance.now() - camera.lastFrameAt < 1500) {
+        setCameraStatus(`Live · ${fps} fps · ${camera.size}`, null);
+        return;
+    }
+    try {
+        const status = await fetch("/camera/status", { cache: "no-store" }).then((r) => r.json());
+        if (status.connected) setCameraStatus("Waiting for keyframe…", "Connected, waiting for the next keyframe…");
+        else setCameraStatus("Offline", `Can't reach the drone's camera at ${status.addr}. Is live_camera.service running on the Pi?`);
+    } catch {
+        setCameraStatus("Offline", "Control server unreachable");
+    }
+}
+
+function setupCameraRotate() {
+    const canvas = $("camera");
+    try {
+        canvas.classList.toggle("rotated", localStorage.getItem(CAMERA_ROTATE_KEY) === "1");
+    } catch { /* storage unavailable */ }
+    $("camera-rotate").addEventListener("click", () => {
+        const rotated = canvas.classList.toggle("rotated");
+        try {
+            localStorage.setItem(CAMERA_ROTATE_KEY, rotated ? "1" : "0");
+        } catch { /* storage unavailable */ }
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
 function frame() {
@@ -705,6 +876,10 @@ window.addEventListener("load", () => {
     buildAxisCards();
     setupSettingsButtons();
     $("reboot-fc").addEventListener("click", rebootFc);
+    setupCameraRotate();
+    runCamera();
+    renderCameraStatus();
+    setInterval(renderCameraStatus, 1000);
     setupSparklineHover();
     setupManualRc();
     loadSettings();
