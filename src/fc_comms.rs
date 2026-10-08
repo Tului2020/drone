@@ -1,5 +1,6 @@
 //! Module for FC communications
 pub mod crsf;
+pub mod msp;
 mod rc_controls;
 pub mod telemetry;
 
@@ -22,7 +23,13 @@ use crate::udp_server::UdpServer;
 use crate::{app_data::DroneAppData, DroneResult};
 
 #[cfg(feature = "real")]
-use crsf::{build_frame, frame_type, pack_rc, us_to_crsf, CrsfParser};
+use crsf::{build_frame, frame_type, pack_rc, us_to_crsf};
+#[cfg(feature = "real")]
+use telemetry::TelemetryDecoder;
+
+/// Poll one MSP command (motors / status / IMU) every N RC frames (N × 20ms)
+#[cfg(feature = "real")]
+const MSP_POLL_EVERY_N_FRAMES: u32 = 5;
 
 /// FC communications
 pub struct FcComms {
@@ -92,7 +99,7 @@ impl FcComms {
                     }
                 };
 
-                let mut parser = CrsfParser::default();
+                let mut decoder = TelemetryDecoder::new(MSP_POLL_EVERY_N_FRAMES);
                 let mut read_buf = [0u8; 256];
 
                 loop {
@@ -100,7 +107,10 @@ impl FcComms {
                     let chans_us = { rc_controls_clone.lock().unwrap().chans_us() };
                     let chans: Vec<u16> = chans_us.iter().copied().map(us_to_crsf).collect();
                     let payload = pack_rc(&chans);
-                    let frame = build_frame(frame_type::RC_CHANNELS_PACKED, &payload);
+                    let mut frame = build_frame(frame_type::RC_CHANNELS_PACKED, &payload);
+                    if let Some(msp_request) = decoder.next_msp_request() {
+                        frame.extend_from_slice(&msp_request);
+                    }
 
                     // ---------- try to write ----------
                     match port.write_all(&frame) {
@@ -108,7 +118,7 @@ impl FcComms {
                             // normal path
                             Self::read_telemetry(
                                 port.as_mut(),
-                                &mut parser,
+                                &mut decoder,
                                 &mut read_buf,
                                 &telemetry_clone,
                             );
@@ -161,7 +171,7 @@ impl FcComms {
     #[cfg(feature = "real")]
     fn read_telemetry(
         port: &mut dyn SerialPort,
-        parser: &mut CrsfParser,
+        decoder: &mut TelemetryDecoder,
         read_buf: &mut [u8],
         telemetry: &Mutex<Telemetry>,
     ) {
@@ -175,20 +185,14 @@ impl FcComms {
         };
 
         let to_read = available.min(read_buf.len());
-        let frames = match port.read(&mut read_buf[..to_read]) {
-            Ok(n) => parser.push(&read_buf[..n]),
-            Err(e) => {
-                debug!("Failed to read FC telemetry: {e}");
-                return;
-            }
-        };
-
-        let now_ms = crate::get_time_ms() as u64;
-        let mut telemetry = telemetry.lock().unwrap();
-        for frame in &frames {
-            telemetry.apply_frame(frame, now_ms);
+        match port.read(&mut read_buf[..to_read]) {
+            Ok(n) => decoder.feed(
+                &read_buf[..n],
+                &mut telemetry.lock().unwrap(),
+                crate::get_time_ms() as u64,
+            ),
+            Err(e) => debug!("Failed to read FC telemetry: {e}"),
         }
-        telemetry.crc_errors = parser.crc_errors;
     }
 
     /// Latest telemetry received from the FC

@@ -1,8 +1,12 @@
 //! Telemetry received from the flight controller (FC)
 use serde::{Deserialize, Serialize};
 
-use super::crsf::{frame_type, CrsfFrame};
+use super::crsf::{frame_type, CrsfFrame, CrsfParser};
+use super::msp::{self, FcStatus, Imu, MspReassembler, MspResponse};
 use crate::fc_comms::RcControls;
+
+/// MSP commands polled round-robin
+const MSP_POLL_CMDS: [u8; 3] = [msp::cmd::STATUS_EX, msp::cmd::MOTOR, msp::cmd::RAW_IMU];
 
 /// Everything we know about the drone. Sections are `None` until the FC reports them.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -17,6 +21,12 @@ pub struct Telemetry {
     pub gps: Option<Gps>,
     /// Barometric altitude and vertical speed
     pub altitude: Option<Altitude>,
+    /// Motor outputs (MSP, typically 1000-2000)
+    pub motors: Option<Vec<u16>>,
+    /// Flight controller health (MSP)
+    pub fc_status: Option<FcStatus>,
+    /// Raw IMU (MSP)
+    pub imu: Option<Imu>,
     /// RC channels currently being sent to the FC
     pub rc_sent: Option<RcControls>,
     /// Time (ms since Unix epoch) of the last valid frame from the FC
@@ -162,6 +172,82 @@ impl Telemetry {
     }
 }
 
+impl Telemetry {
+    /// Updates the telemetry from an MSP response. Returns `true` if the response was understood.
+    pub fn apply_msp(&mut self, resp: &MspResponse, now_ms: u64) -> bool {
+        let handled = match resp.cmd {
+            msp::cmd::MOTOR => msp::decode_motors(&resp.data).map(|m| self.motors = Some(m)),
+            msp::cmd::RAW_IMU => msp::decode_imu(&resp.data).map(|i| self.imu = Some(i)),
+            msp::cmd::STATUS_EX => {
+                msp::decode_status_ex(&resp.data).map(|s| self.fc_status = Some(s))
+            }
+            _ => None,
+        }
+        .is_some();
+
+        if handled {
+            self.last_fc_frame_ms = Some(now_ms);
+        }
+        handled
+    }
+}
+
+/// Turns the raw byte stream from the FC into [`Telemetry`] updates and schedules MSP polls
+#[derive(Debug)]
+pub struct TelemetryDecoder {
+    parser: CrsfParser,
+    msp: MspReassembler,
+    /// Send an MSP request every `msp_poll_every` calls to [`Self::next_msp_request`]
+    msp_poll_every: u32,
+    tick: u32,
+    poll_idx: usize,
+    seq: u8,
+}
+
+impl TelemetryDecoder {
+    /// `msp_poll_every`: poll one MSP command every N RC frames (0 disables MSP polling)
+    pub fn new(msp_poll_every: u32) -> Self {
+        Self {
+            parser: CrsfParser::default(),
+            msp: MspReassembler::default(),
+            msp_poll_every,
+            tick: 0,
+            poll_idx: 0,
+            seq: 0,
+        }
+    }
+
+    /// Call once per RC frame; returns an MSP request frame to send when one is due
+    pub fn next_msp_request(&mut self) -> Option<Vec<u8>> {
+        if self.msp_poll_every == 0 {
+            return None;
+        }
+        self.tick = (self.tick + 1) % self.msp_poll_every;
+        if self.tick != 0 {
+            return None;
+        }
+        let cmd = MSP_POLL_CMDS[self.poll_idx];
+        self.poll_idx = (self.poll_idx + 1) % MSP_POLL_CMDS.len();
+        self.seq = self.seq.wrapping_add(1);
+        Some(msp::build_request(cmd, self.seq))
+    }
+
+    /// Feeds raw serial bytes from the FC and applies everything decoded to `telemetry`
+    pub fn feed(&mut self, bytes: &[u8], telemetry: &mut Telemetry, now_ms: u64) {
+        for frame in self.parser.push(bytes) {
+            if frame.frame_type == frame_type::MSP_RESP {
+                if let Some(resp) = self.msp.push(&frame.payload) {
+                    telemetry.apply_msp(&resp, now_ms);
+                }
+                telemetry.frames_received += 1;
+            } else {
+                telemetry.apply_frame(&frame, now_ms);
+            }
+        }
+        telemetry.crc_errors = self.parser.crc_errors;
+    }
+}
+
 /// Unpacks CRSF baro altitude: MSB clear -> decimeters offset by 10000, MSB set -> meters
 fn unpack_altitude(packed: u16) -> f32 {
     if packed & 0x8000 == 0 {
@@ -283,6 +369,34 @@ mod tests {
         let alt = t.altitude.unwrap();
         assert!((alt.baro_altitude_m.unwrap() - 12.3).abs() < 1e-3);
         assert_eq!(alt.vertical_speed_ms, Some(0.));
+    }
+
+    #[test]
+    fn decoder_polls_round_robin_and_applies_msp() {
+        use crate::fc_comms::crsf::build_frame;
+
+        let mut decoder = TelemetryDecoder::new(2);
+        let polls: Vec<_> = (0..6).filter_map(|_| decoder.next_msp_request()).collect();
+        let cmds: Vec<u8> = polls.iter().map(|f| f[f.len() - 2]).collect();
+        assert_eq!(
+            cmds,
+            vec![msp::cmd::STATUS_EX, msp::cmd::MOTOR, msp::cmd::RAW_IMU]
+        );
+
+        let mut motors = vec![8, msp::cmd::MOTOR];
+        for m in [1100u16, 1200, 1300, 1400] {
+            motors.extend_from_slice(&m.to_le_bytes());
+        }
+        let mut payload = vec![0xEA, 0xC8, 0x30];
+        payload.extend_from_slice(&motors);
+        let mut bytes = build_frame(frame_type::MSP_RESP, &payload);
+        bytes.extend(build_frame(frame_type::FLIGHT_MODE, b"ACRO\0"));
+
+        let mut t = Telemetry::default();
+        decoder.feed(&bytes, &mut t, 7);
+        assert_eq!(t.motors, Some(vec![1100, 1200, 1300, 1400]));
+        assert_eq!(t.flight_mode.unwrap().name, "ACRO");
+        assert_eq!(t.frames_received, 2);
     }
 
     #[test]
